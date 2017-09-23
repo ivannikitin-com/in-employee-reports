@@ -35,13 +35,7 @@ class Plugin
 		
 		// Инициализация плагина по хуку init
 		add_action( 'init', array( $this, 'init' ) );
-	}
-
-	/**
-	 * Класс менеджера пользователей
-	 * @var INER\Report
-	 */
-	public $roleManager;		
+	}		
 	
 	/**
 	 * Класс отчетов
@@ -54,7 +48,6 @@ class Plugin
 	 */
 	public function init()
 	{
-		$this->roleManager 	= new RoleManager( $this );
 		$this->report 		= new Report( $this );
 	}
 	

@@ -15,16 +15,12 @@ class Report extends Base
 	/**
 	 * Конструктор
 	 * инициализирует параметры и загружает данные
-	 * @param INER\Plugin	$plugin Ссылка на основной объект плагина
+	 * @param INER\Plugin	$plugin Ссылка на основной объект плагина 
 	 */
 	public function __construct( $plugin )
 	{
 		// Родительский конструктор
-		parent::__construct( $plugin );
-		
-		// Если у пользователя нет прав на доступ к отчетам, ничего не делаем
-		if ( ! ( current_user_can( RoleManager::VIEW_EMPLOYEE_REPORTS ) || current_user_can( 'administrator' ) ) )
-			return;
+		parent::__construct( $plugin );	
 		
 		// Регистрируем тип записей
 		$this->registerCPT();
@@ -43,6 +39,9 @@ class Report extends Base
 		
 		// Фильтрация отчетов по пользователям
 		add_action( 'pre_get_posts', array( $this, 'setUsersFilter' ) );
+		
+		// Регистрация REST маршрута
+		add_action( 'rest_api_init', array( $this, 'registerRoutes' ) );
 	}
 	
 	/**
@@ -84,10 +83,30 @@ class Report extends Base
 			'has_archive'         => false,		
 			'exclude_from_search' => true,
 			'publicly_queryable'  => true,
-			'capability_type'     => 'post',
+			'capabilities'		  => array(   // https://codex.wordpress.org/Function_Reference/register_post_type#capabilities
+				// Meta capabilities
+				'edit_post' 			=> RoleManager::EDIT_ACTIVITY,
+				'read_post' 			=> RoleManager::READ_ACTIVITY,
+				'delete_post' 			=> RoleManager::DELETE_ACTIVITY,
+				// Primitive capabilities used outside of map_meta_cap()
+				'edit_posts' 			=> RoleManager::EDIT_ACTIVITY,
+				'edit_others_posts' 	=> RoleManager::EDIT_OTHER_ACTIVITIES,
+				'publish_posts' 		=> RoleManager::EDIT_ACTIVITY,
+				'read_private_posts'	=> RoleManager::READ_OTHER_ACTIVITIES,
+				// Primitive capabilities used within map_meta_cap()
+				'read'					=> RoleManager::READ_ACTIVITY,
+				'delete_posts'			=> RoleManager::DELETE_ACTIVITY,
+				'delete_private_posts'	=> RoleManager::DELETE_ACTIVITY,
+				'delete_published_posts'=> RoleManager::DELETE_ACTIVITY,
+				'delete_others_posts'	=> RoleManager::DELETE_OTHER_ACTIVITIES,
+				'edit_private_posts' 	=> RoleManager::EDIT_ACTIVITY,					
+				'edit_published_posts' 	=> RoleManager::EDIT_ACTIVITY,					
+				'create_posts' 			=> RoleManager::EDIT_ACTIVITY,					
+			),
 			'show_in_rest'        => true,
 			'rest_base'           => self::CPT,
-			'rest_controller_class' => 'WP_REST_Posts_Controller'			
+			//'rest_controller_class' => 'WP_REST_Posts_Controller'			
+			'rest_controller_class' => '\INER\REST_Controller'			
 			);
 		register_post_type(self::CPT, $args );		
 	}
@@ -116,7 +135,8 @@ class Report extends Base
 	const FIELD_DATE		= 'date';	
 	const FIELD_PROJECT		= 'project';	
 	const FIELD_QUO			= 'quo';	
-	const FIELD_RATE		= 'rate';	
+	const FIELD_RATE		= 'rate';		
+	const FIELD_COMMENT		= 'comment';		
 	
 	/**
 	 * Мета-поля, используем старые значения для обратной совместимости
@@ -336,23 +356,36 @@ END_OF_HTML;
 	{
 		if ( $query->get( 'post_type' ) == self::CPT )
 		{
+			// Текущий пользователь
+			$userId = get_current_user_id();		
+			
 			// Получаем список пользователей, отчеты которых нужно показать
-			$userIds = $this->plugin->roleManager->getUserIds();
+			$allowedUsers = RoleManager::getAllowedUsers( $userId );
 			
 			// Для админов не фильтруем
-			if ( empty( $userIds ) )
+			if ( user_can( $userId, 'administrator' ) )
 				return;
 			
 			// Возможный текущий фильтр
 			$currentAuthor = $query->get('author');
 			
 			// Если пользователь пытается подставить в фильтр ID, доступ к которому есть, разрешаем и ничего не делаем
-			if ( ! empty( $currentAuthor )  && in_array( $currentAuthor, $userIds ) )
+			if ( ! empty( $currentAuthor )  && in_array( $currentAuthor, $allowedUsers ) )
 				return;
 			
 			// Ставим фильтр
-			$query->set( 'author', implode( ',', $userIds ) );
+			$query->set( 'author', implode( ',', $allowedUsers ) );
 		}
 	}
+	
+	/**
+	 * Регистрация маршрутов для REST		 
+	 */	
+	public function registerRoutes()
+	{
+		$controller = new REST_Controller();
+		$controller->register_routes();		
+	}
+	
 	
 }
