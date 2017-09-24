@@ -106,7 +106,7 @@ class Report extends Base
 			'show_in_rest'        => true,
 			'rest_base'           => self::CPT,
 			//'rest_controller_class' => 'WP_REST_Posts_Controller'			
-			'rest_controller_class' => '\INER\REST_Controller'			
+			'rest_controller_class' => '\INER\Activity_REST_Controller'			
 			);
 		register_post_type(self::CPT, $args );		
 	}
@@ -383,7 +383,7 @@ END_OF_HTML;
 	 */	
 	public function registerRoutes()
 	{
-		$controller = new REST_Controller();
+		$controller = new Activity_REST_Controller();
 		$controller->register_routes();		
 	}
 	

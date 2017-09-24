@@ -24,7 +24,8 @@ require( INER_FOLDER . 'classes/base.php' );
 require( INER_FOLDER . 'classes/plugin.php' );
 require( INER_FOLDER . 'classes/rolemanager.php' );
 require( INER_FOLDER . 'classes/report.php' );
-require( INER_FOLDER . 'classes/rest-controller.php' );
+require( INER_FOLDER . 'classes/frontend.php' );
+require( INER_FOLDER . 'classes/activity-rest-controller.php' );
 
 /* Активация плагина */
 register_activation_hook( __FILE__, 'iner_activation' );

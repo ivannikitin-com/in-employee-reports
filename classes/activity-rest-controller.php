@@ -4,7 +4,7 @@
  * Недолго думая, просто расширяем готовый класс контроллера для постов
  */
 namespace INER;
-class REST_Controller extends \WP_REST_Posts_Controller
+class Activity_REST_Controller extends \WP_REST_Posts_Controller
 {
 	/**
 	 * Инициализация контроллера		 

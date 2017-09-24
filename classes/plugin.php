@@ -38,17 +38,25 @@ class Plugin
 	}		
 	
 	/**
-	 * Класс отчетов
+	 * Экземпляр класса отчетов
 	 * @var INER\Report
 	 */
 	public $report;	
+	
+	/**
+	 * Экземпляр класса фронтэнда
+	 * @var INER\Frontend
+	 */
+	public $frontend;		
+	
 	
 	/**
 	 * Инициализация плагина
 	 */
 	public function init()
 	{
-		$this->report 		= new Report( $this );
+		$this->report 	= new Report( $this );
+		$this->frontend	= new Frontend( $this );
 	}
 	
 	/**
