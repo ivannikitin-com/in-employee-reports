@@ -5,7 +5,25 @@ jQuery( function($)
 {
 	// Элементы
 	var totalQuo = $('#totalQuo'),
-		totalSum = $('#totalSum');
+		totalSum = $('#totalSum'),
+		selEmployee = $('#inerEmployee'),
+		selMonth = $('#inerMonth'),
+		txtYear = $('#inerYear'),
+		btnReload = $('#inerReload');
+	
+	// Список сотрудников
+	$.each( innerREST.employees, function( key, value ) {   
+		selEmployee
+			.append( $( '<option></option>' )
+			.attr( 'value', key )
+			.text( value ) );
+	});
+	selEmployee.val( innerREST.currentUserId ).change();
+	
+	// Текущая дата
+	var dateNow = new Date();
+	selMonth.val( dateNow.getMonth() + 1 ).change();
+	txtYear.val( dateNow.getFullYear() );
 
 	// Handsontable
 	var container = $("#inerHot")
@@ -15,7 +33,7 @@ jQuery( function($)
 				{data: 'id', type: 'numeric', readOnly: true },
 				{data: 'employee', readOnly: true },
 				{data: 'date', type: 'date', dateFormat: 'DD.MM.YYYY', correctFormat: true },
-				{data: 'project' },
+				{data: 'project', type: 'autocomplete', source: innerREST.projects, strict: false, visibleRows: 5 },
 				{data: 'quo', type: 'numeric',  format: '0,0.[000]', language: 'ru-RU' }, 
 				{data: 'rate', type: 'numeric', format: '0,0 $', language: 'ru-RU'  },
 				{data: 'comment'  }
@@ -27,8 +45,8 @@ jQuery( function($)
 			afterChange: dataChanged,
 			contextMenu: {
 			  items: {
-				"row_above": { name: 'Ряд выше'	},
-				"row_below": { name: 'Ряд ниже'},
+				"row_above": { name: 'Вставить ряд выше' },
+				"row_below": { name: 'Вставить ряд ниже'},
 				"hsep1": "---------",
 				"remove_row": { name: 'Удалить ряд' }
 			  }
@@ -88,7 +106,12 @@ jQuery( function($)
 	
 	
 	// Загрузка данных	
-	loadData();	
+	loadData();
+	btnReload.on('click', function(){ loadData(); });
+	selEmployee.on('change', function(){ loadData(); });
+	selMonth.on('change', function(){ loadData(); });
+	txtYear.on('change', function(){ loadData(); });
+	
 	function loadData() 
 	{
 		message.show( 'Загрузка данных' );
@@ -99,7 +122,9 @@ jQuery( function($)
 				xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
 			},
 			data:{
-				'title' : 'Hello Moon'
+				'employeeId' : selEmployee.val(),
+				'month' : selMonth.val(),
+				'year' : txtYear.val()
 			}
 		})
 		.done( function ( response ) {

@@ -45,18 +45,38 @@ class Frontend extends Base
 		wp_enqueue_style( 'in-employee-reports-frontend' );
 
 		// Регистрация скриптов
-		//wp_register_script( 'numeral-js', $this->plugin->url . 'assets/Numeral-js/min/numeral.min.js', array( ), '2.0.6', true );
-		//wp_register_script( 'numeral-js-locales', $this->plugin->url . 'assets/Numeral-js/min/locales.min.js', array( 'numeral-js' ), '2.0.6', true );
 		wp_register_script( 'handsontable', $this->plugin->url . 'assets/handsontable/dist/handsontable.full.min.js', array( 'jquery' ), '0.34.4', true );
 		wp_register_script( 'numbro-ru', $this->plugin->url . 'assets/handsontable/dist/numbro/languages/ru-RU.min.js', array( 'handsontable' ), '0.34.4', true );
 		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'handsontable', 'numbro-ru' ), '2.0', true );
 
 		
+		// Список пользователей для показа в списке
+		$employees = array();	
+		if ( current_user_can( 'administrator' ) ) 
+		{
+			// Для администратора выбираем всех сотрудгников и подрядчиков 
+			$user_query = new \WP_User_Query( array( 'role__in' => array ( 'administrator', 'employee', 'head_of_department', 'head') ) );
+			$employees[0] = 'Все';
+		}
+		else
+		{
+			// Для обычных пользователей берем данные из RoleManager
+			$user_query = new \WP_User_Query( array( 'include' => RoleManager::getAllowedUsers( get_current_user_id() ) ) );
+		}
+		if ( ! empty( $user_query->results ) ) 
+		{
+			foreach ( $user_query->results as $user ) 
+				$employees[ $user->ID ] = $user->display_name; 
+		}
+			
 		// Данные для скрипта
 		$innerREST = array(
-			'debug'	=> WP_DEBUG,
-			'root'	=> esc_url_raw( rest_url() ),
-			'nonce'	=> wp_create_nonce( 'wp_rest' ),
+			'debug'			=> WP_DEBUG,
+			'root'			=> esc_url_raw( rest_url() ),
+			'nonce'			=> wp_create_nonce( 'wp_rest' ),
+			'currentUserId'	=> get_current_user_id(),
+			'employees' 	=> $employees,
+			'projects'		=> apply_filters( 'iner_projects', array( 'Оклад' ), get_current_user_id() ),
 		);
 		wp_localize_script( 'in-employee-reports', 'innerREST', $innerREST );
 
@@ -76,10 +96,39 @@ class Frontend extends Base
 			'baz' => 'default baz'
 		), $atts, self::SHORTCODE );		
 
+		$year = date('Y');
 		$html = <<<END_OF_HTML
-<section class="inerFrontend">
+<section id="inerFrontend">
 	<div id="inerMessage">Сообщение</div>
-	
+	<div id="inerFilter">
+		<label for="inerEmployee">Сотрудник</label>
+		<select id="inerEmployee"></select>
+		
+		<span class="separator">&nbsp;</span>
+		
+		<label for="inerMonth">Месяц</label>
+		<select id="inerMonth">
+			<option value="1">Январь</option>
+			<option value="2">Февраль</option>
+			<option value="3">Март</option>
+			<option value="4">Апрель</option>
+			<option value="5">Май</option>
+			<option value="6">Июнь</option>
+			<option value="7">Июль</option>
+			<option value="8">Август</option>
+			<option value="9">Сентябрь</option>
+			<option value="10">Октябрь</option>
+			<option value="11">Ноябрь</option>
+			<option value="12">Декабрь</option>
+		</select>
+		
+		<span class="separator">&nbsp;</span>
+		
+		<label for="inerYear">Год</label>
+		<input id="inerYear" type="number" min="2011" max="2025" step="1" value="{$year}" />
+		
+		<button id="inerReload">Показать</button>
+	</div>
 	<div id="inerTotals">
 		Итого: Количество: <span id="totalQuo">0</span>, Сумма: <span id="totalSum">0</span> руб. 
 	</div>

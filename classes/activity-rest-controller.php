@@ -139,22 +139,48 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
      */
     public function get_items( $request ) 
 	{
-
+		/** DUMP Request 
+		file_put_contents( INER_FOLDER . 'request-items.log', var_export($request, true ) . PHP_EOL . PHP_EOL );	*/	
+		
+		// Параметры запроса
+		$employeeId = ( isset ($request['employeeId']) ) ? $request['employeeId'] : get_current_user_id();
+		$year = ( isset ($request['year']) ) ? $request['year'] : date('Y');
+		$month = ( isset ($request['month']) ) ? $request['month'] : date('m');
+		
 		// Данные для ответа
 		$data = array();
-		
-		// Текущая дата
-		$today = getdate();
 		
 		// Далем запрос на получение данных
 		$args = array( 
 			'post_type' 		=> Report::CPT,
-			'year'				=> $today["year"],
-			'monthnum'			=> $today["mon"],
+			'year'				=> $year,
+			'monthnum'			=> $month,
 			'order'				=> 'ASC',
 			'orderby'			=> 'ID',
 			'posts_per_page'	=>-1
 		);
+		
+
+		// Определяем пользователей, которых нужно показать
+		if ( $employeeId == '0' )
+		{
+			// Находим список пользователей, которых нужно показать
+			$args[ 'author__in'] = RoleManager::getAllowedUsers( get_current_user_id() );
+			
+			// Если это админ, уберем фильтр
+			if ( current_user_can( 'administrator' ) ) 
+				unset( $args[ 'author__in'] );
+		}
+		else
+		{
+			// Для единичного пользователя, просто указываем его
+			$args[ 'author'] = $employeeId ;
+		}
+
+		
+		
+	
+		
 		$query = new \WP_Query();
 		$posts = $query->query( $args );
 		

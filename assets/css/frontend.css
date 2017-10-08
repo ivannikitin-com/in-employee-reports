@@ -13,3 +13,22 @@
 	padding: 10px;
 	box-shadow: 4px 4px 10px; 
 }
+
+#inerFilter
+{
+	padding-bottom: 5px;
+	margin-bottom: 5px;
+	border-bottom: 1px solid #ccc;
+}
+
+#inerEmployee, #inerMonth, #inerYear, #inerReload
+{
+	padding: 2px;
+	background-color: #fff;
+	border: 1px solid #ccc;
+}
+
+#inerReload
+{
+	background-color: #999;
+}
