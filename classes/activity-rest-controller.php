@@ -148,11 +148,12 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 		
 		// Далем запрос на получение данных
 		$args = array( 
-			'post_type' => Report::CPT,
-			'year'		=> $today["year"],
-			'monthnum'	=> $today["mon"],
-			'order'		=> 'ASC',
-			'orderby'	=> 'ID',
+			'post_type' 		=> Report::CPT,
+			'year'				=> $today["year"],
+			'monthnum'			=> $today["mon"],
+			'order'				=> 'ASC',
+			'orderby'			=> 'ID',
+			'posts_per_page'	=>-1
 		);
 		$query = new \WP_Query();
 		$posts = $query->query( $args );
@@ -467,7 +468,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 	
 		// Формируем ответ
 		$response = new \WP_REST_Response();
-		$response->set_data( array( 'deleted' => true ) );
+		$response->set_data( array( 'deleted' => true, 'id' => $post->ID ) );
  
         // Возвращаем обновленную запись
         return $response;

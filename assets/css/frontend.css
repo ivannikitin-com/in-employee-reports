@@ -1,0 +1,15 @@
+/* Сообщения */
+#inerMessage
+{
+	display: none;
+	position:fixed;
+	z-index:999999;
+	margin: auto;
+	top: 0; left: 40%;
+	background-color:#ff9;
+	boder: 1px solid gray;
+	border-bottom-right-radius: 10px;
+	border-bottom-left-radius: 10px;
+	padding: 10px;
+	box-shadow: 4px 4px 10px; 
+}
