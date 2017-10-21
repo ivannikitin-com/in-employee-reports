@@ -54,8 +54,12 @@ class Frontend extends Base
 		$employees = array();	
 		if ( current_user_can( 'administrator' ) ) 
 		{
-			// Для администратора выбираем всех сотрудгников и подрядчиков 
-			$user_query = new \WP_User_Query( array( 'role__in' => array ( 'administrator', 'employee', 'head_of_department', 'head') ) );
+			// Все роли плагина
+			$allRoles = array_keys( RoleManager::$roles );
+			// Добавим админа
+			$allRoles[] = 'administrator';
+			// Для администратора выбираем всех сотрудгников и подрядчиков
+			$user_query = new \WP_User_Query( array( 'role__in' => $allRoles ) );
 			$employees[0] = 'Все';
 		}
 		else
