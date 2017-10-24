@@ -42,6 +42,8 @@ jQuery( function($)
 			startCols: 7,
 			rowHeaders: false,
 			minSpareRows: 1,
+			stretchH: 'all',
+			 preventOverflow: 'horizontal',
 			afterChange: dataChanged,
 			contextMenu: {
 			  items: {
@@ -89,7 +91,7 @@ jQuery( function($)
 		}	
 	}
 	var message = new Message( '#inerMessage', function(){
-		// Рассчет истоговых значений, когда будет погашен баннер
+		// Рассчет итоговых значений, когда будет погашен баннер
 		var data = hotInstance.getData(),
 		 	quo = 0,
 			sum = 0;
@@ -99,8 +101,8 @@ jQuery( function($)
 			quo += data[i][4] * 1;
 			sum += data[i][4] * data[i][5];
 		}
-		totalQuo.text( quo );
-		totalSum.text( sum );
+		totalQuo.text( numbro( quo ).format('0,0.[000]')  );
+		totalSum.text( numbro( sum ).format('0,0.[00] $')  );
 	});	
 	
 	
@@ -134,6 +136,8 @@ jQuery( function($)
 			for (var i=0; i<response.length; i++)
 			{
 				response[i].data.date = moment(response[i].data.date).format('DD.MM.YYYY');
+				response[i].data.quo = parseFloat( response[i].data.quo.toString().replace(/,/, '.') );
+				response[i].data.rate = parseFloat( response[i].data.rate.toString().replace(/,/, '.') );
 				resultData.push( response[i].data );					
 			}
 			hotInstance.loadData( resultData );

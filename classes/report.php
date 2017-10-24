@@ -383,7 +383,7 @@ END_OF_HTML;
 	 */	
 	public function registerRoutes()
 	{
-		$controller = new Activity_REST_Controller();
+		$controller = new Activity_REST_Controller( self::CPT );
 		$controller->register_routes();		
 	}
 	

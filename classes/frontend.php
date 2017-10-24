@@ -36,6 +36,10 @@ class Frontend extends Base
 	 */	
     public function loadAssets()
     {	
+		// Загрузка только для зарегистрированных пользователей
+		if ( ! is_user_logged_in() ) 
+			return;
+		
 		// Регистрация CSS
 		wp_register_style( 'handsontable', $this->plugin->url . 'assets/handsontable/dist/handsontable.full.min.css', array(), '0.34.4');
 		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '2.0');
@@ -72,6 +76,10 @@ class Frontend extends Base
 			foreach ( $user_query->results as $user ) 
 				$employees[ $user->ID ] = $user->display_name; 
 		}
+		
+		// Спиок проектов для автозаполнения
+		$projectList = apply_filters( 'iner_projects', array( 'Оклад', 'Координация проектов' ), get_current_user_id() );
+		sort( $projectList );
 			
 		// Данные для скрипта
 		$innerREST = array(
@@ -80,7 +88,7 @@ class Frontend extends Base
 			'nonce'			=> wp_create_nonce( 'wp_rest' ),
 			'currentUserId'	=> get_current_user_id(),
 			'employees' 	=> $employees,
-			'projects'		=> apply_filters( 'iner_projects', array( 'Оклад' ), get_current_user_id() ),
+			'projects'		=> $projectList,
 		);
 		wp_localize_script( 'in-employee-reports', 'innerREST', $innerREST );
 
@@ -93,6 +101,13 @@ class Frontend extends Base
 	 */	
     public function getHTML( $atts, $content='' )
     {
+		
+		// Проверяем аутентификацию пользователя, если нет - на авторизацию!
+		if ( ! is_user_logged_in() ) 
+		{
+		   auth_redirect();
+		}		
+		
 		// Получаем aтрибуты вызова и пропускаем их через фильтр shortcode_atts_$shortcode
 		// https://codex.wordpress.org/Function_Reference/shortcode_atts
 		$atts = shortcode_atts( array(
@@ -134,7 +149,10 @@ class Frontend extends Base
 		<button id="inerReload">Показать</button>
 	</div>
 	<div id="inerTotals">
-		Итого: Количество: <span id="totalQuo">0</span>, Сумма: <span id="totalSum">0</span> руб. 
+		Итого: 
+		Количество: <span id="totalQuo">0</span> 
+		<span style="display:block-inline;width:20px">&nbsp;</span> 
+		Сумма: <span id="totalSum">0</span> 
 	</div>
 	<div id="inerHot"></div>
 </section>

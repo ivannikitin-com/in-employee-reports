@@ -122,6 +122,12 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 		/** DUMP Request 
 		file_put_contents( INER_FOLDER . 'request-items.log', var_export($request, true ) . PHP_EOL . PHP_EOL );*/
 
+		/** DUMP $_SERVER для проверки авторизации */
+		$_SERVER['WP_User'] = wp_get_current_user();
+		file_put_contents( INER_FOLDER . 'var-server.log', var_export($_SERVER, true ) . PHP_EOL . PHP_EOL );		
+		
+		
+		
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() )
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
@@ -176,10 +182,6 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 			// Для единичного пользователя, просто указываем его
 			$args[ 'author'] = $employeeId ;
 		}
-
-		
-		
-	
 		
 		$query = new \WP_Query();
 		$posts = $query->query( $args );
@@ -262,7 +264,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
             return rest_ensure_response( array() );
         }
  
-        $response = $this->prepare_item_for_response( $post );
+        $response = $this->prepare_item_for_response( $post, $request );
  
         // Return all of our post response data.
         return $response;
@@ -281,8 +283,8 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 		$post_data[ Report::FIELD_EMPLOYEE ] 	= $employee->display_name;
 		$post_data[ Report::FIELD_DATE ] 		= $post->post_date;
 		$post_data[ Report::FIELD_PROJECT ] 	= get_post_meta( $post->ID, Report::META_PROJECT, true );
-		$post_data[ Report::FIELD_QUO ] 		= get_post_meta( $post->ID, Report::META_QUO, true );
-		$post_data[ Report::FIELD_RATE ] 		= get_post_meta( $post->ID, Report::META_RATE, true );
+		$post_data[ Report::FIELD_QUO ] 		= (float) get_post_meta( $post->ID, Report::META_QUO, true ) * 1;
+		$post_data[ Report::FIELD_RATE ] 		= (float) get_post_meta( $post->ID, Report::META_RATE, true ) * 1;
 		$post_data[ Report::FIELD_COMMENT ] 	= $post->post_title;
         return rest_ensure_response( $post_data );
     }	
