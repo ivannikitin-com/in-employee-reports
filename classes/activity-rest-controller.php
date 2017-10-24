@@ -304,8 +304,8 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
 		
 		// Проверка прав на доступ к записи
-		if ( ! RoleManager::canDo( $request['id'], get_current_user_id(), RoleManager::READ_ACTIVITY, RoleManager::READ_OTHER_ACTIVITIES ) ) 
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к записи #' . $request[ Report::FIELD_ID ], array( 'status' => '403' ) );		
+		if ( ! RoleManager::canDo( $request['id'], get_current_user_id(), RoleManager::CREATE_ACTIVITY, RoleManager::READ_OTHER_ACTIVITIES ) ) 
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на создание записи. create_item_permissions_check', array( 'status' => '403' ) );		
 
 		return true;
     }	

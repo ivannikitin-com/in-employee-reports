@@ -130,6 +130,13 @@ class RoleManager
 		// Получаем ID владельца записи
 		$postAuthorId = get_post_field( 'post_author', $postId );
 		
+		// Если ID записи 0 - это добавление. Делаем проверку на CREATE
+		if ( empty( $postId ) && $ownCap == self::CREATE_ACTIVITY )
+		{
+			// Считаем, что это пользователь - автор записи. Для следующих проверок.
+			$postAuthorId = $userId;
+		}
+		
 		// Если эта запись своя
 		if ( $userId == $postAuthorId )
 		{
