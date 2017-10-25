@@ -44,9 +44,7 @@ class Frontend extends Base
 		wp_register_style( 'handsontable', $this->plugin->url . 'assets/handsontable/dist/handsontable.full.min.css', array(), '0.34.4');
 		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '2.0');
 
-		// Загрузка CSS
-		wp_enqueue_style( 'handsontable' );
-		wp_enqueue_style( 'in-employee-reports-frontend' );
+		// Загрузка CSS перенесена в метод getHTML, чтобы не грузить их на всех страницах
 
 		// Регистрация скриптов
 		wp_register_script( 'handsontable', $this->plugin->url . 'assets/handsontable/dist/handsontable.full.min.js', array( 'jquery' ), '0.34.4', true );
@@ -92,8 +90,8 @@ class Frontend extends Base
 		);
 		wp_localize_script( 'in-employee-reports', 'innerREST', $innerREST );
 
-		// Загрузка скриптов
-		wp_enqueue_script( 'in-employee-reports' );
+		// Загрузка скриптов перенесена в метод getHTML, чтобы не грузить их на всех страницах и не было ошибок отсуствия контейнера с таблицей
+
 	}
 
 	/**
@@ -106,14 +104,23 @@ class Frontend extends Base
 		if ( ! is_user_logged_in() ) 
 		{
 		   auth_redirect();
-		}		
+		}	
 		
 		// Получаем aтрибуты вызова и пропускаем их через фильтр shortcode_atts_$shortcode
 		// https://codex.wordpress.org/Function_Reference/shortcode_atts
 		$atts = shortcode_atts( array(
 			'foo' => 'no foo',
 			'baz' => 'default baz'
-		), $atts, self::SHORTCODE );		
+		), $atts, self::SHORTCODE );	
+		
+		// Загрузка CSS
+		wp_enqueue_style( 'handsontable' );
+		wp_enqueue_style( 'in-employee-reports-frontend' );		
+		
+		// Загрузка скриптов
+		wp_enqueue_script( 'in-employee-reports' );		
+		
+		
 
 		$year = date('Y');
 		$html = <<<END_OF_HTML
