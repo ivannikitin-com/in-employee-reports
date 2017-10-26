@@ -38,6 +38,7 @@ jQuery( function($)
 				{data: 'rate', type: 'numeric', format: '0,0 $', language: 'ru-RU'  },
 				{data: 'comment'  }
 			],
+			columnSorting: true,
 			startRows: 1,
 			startCols: 7,
 			rowHeaders: false,
