@@ -69,6 +69,16 @@ class RoleManager
 	const DELETE_OTHER_ACTIVITIES 	= 'iner_delete_other_activities';	// Удаление "чужих" записей
 	
 	/**
+	 * Пароли приложений пользователя
+	 */	
+	const APP_PASS_USER_META 	= 'app_password';		// Мета-поле пользователя, в котором хранится сериализованный массив с паролем
+	const APP_PASS_CACHE 		= 'iner_app_password';	// Кэш, в котором хранится массив со всеми паролями
+	const APP_PASS_NAME 		= 'application';		// Параметр массива: название приложения
+	const APP_PASS_USER_ID 		= 'user';				// Параметр массива: ID пользователя
+	const APP_PASS_KEY 			= 'key';				// Параметр массива: ключ приложения
+	const APP_PASS_SECRET 		= 'secret';				// Параметр массива: секретный ключ приложени	
+	
+	/**
 	 * Инициализация ролей и разрешений
 	 * Выполняется только при активации плагина
 	 * @static
@@ -164,11 +174,79 @@ class RoleManager
 	
 	/**
 	 * Возвращает список пользователей, разрешенных для просмотра указанному пользователю
-	 * @param int		$userId		ID пользователя
+	 * @param int	$userId		ID пользователя
 	 * @static
 	 */    
 	public static function getAllowedUsers( $userId ) 
 	{
 		return apply_filters( 'in-employee-department-users', array( $userId ), $userId );
 	}
+	
+	
+	/**
+	 * Генерация нового ключа для паролей
+	 * @param string	$param		Некий параметр, который может использоваться в качестве дополнительной соли 
+	 * @static
+	 */    
+	public static function generateKey( $param = '' ) 
+	{
+		return md5( AUTH_SALT . microtime() . $param );
+	}	
+	
+	/**
+	 * Возвращает массив паролей приложений
+	 * @static
+	 */    
+	public static function getApplicationPasswords() 
+	{
+		$applicationPasswords = get_transient( self::APP_PASS_CACHE );
+		if ( $applicationPasswords === false )
+		{
+			// Формируем массив паролей
+			$applicationPasswords = array();
+			
+			// Читаем пользователей, кто имеет право на доступ к отчетам
+			$userRoles = array_merge( array( 'administrator' ), array_keys( self::$roles ) );
+			$user_query = new \WP_User_Query( array( 'role__in' => $userRoles ) );
+			$users = $user_query->get_results();
+			
+			if ( ! empty( $users ) ) 
+			{
+				foreach ( $users as $user )
+				{
+					// Читаем пароли этого пользователя
+					$metaFields = get_user_meta( $user->ID, self::APP_PASS_USER_META, true );
+					$userPasswords = ( !empty( $metaFields ) ) ? unserialize( $metaFields ) : array();
+					$applicationPasswords = array_merge( $applicationPasswords, $userPasswords );
+				}
+			}
+			// Сохраняем в кэше	
+			set_transient( self::APP_PASS_CACHE, $applicationPasswords, 2 * MONTH_IN_SECONDS );
+		}
+		return $applicationPasswords;
+	}
+	
+	/**
+	 * Аутентифицирует приложение по ключу и паролю
+	 * @param string	$key	Ключ приложения
+	 * @param string	$secret	Секрет приложения	 
+	 * @static
+	 */    
+	public static function authentificateApplication( $key, $secret ) 
+	{
+		$applicationPasswords = self::getApplicationPasswords();
+		
+		if ( ! array_key_exists( $key, $applicationPasswords ) )
+			return false;
+			
+		if ( $applicationPasswords[$key][self::APP_PASS_SECRET] !== $secret )
+			return false;
+			
+		$user = get_userdata( $applicationPasswords[$key][self::APP_PASS_USER_ID] );
+		wp_set_current_user( $user->ID, $user->user_login );
+		wp_set_auth_cookie( $user->ID );
+		do_action( 'wp_login', $user->user_login );
+		return true;
+	}
+	
 }

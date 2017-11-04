@@ -49,6 +49,12 @@ class Plugin
 	 */
 	public $frontend;		
 	
+	/**
+	 * Экземпляр класса параметров
+	 * @var INER\Frontend
+	 */
+	public $settings;	
+	
 	
 	/**
 	 * Инициализация плагина
@@ -57,6 +63,7 @@ class Plugin
 	{
 		$this->report 	= new Report( $this );
 		$this->frontend	= new Frontend( $this );
+		$this->settings	= new Settings( $this );
 	}
 	
 	/**

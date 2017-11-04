@@ -119,15 +119,10 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
      */
     public function get_items_permissions_check( $request ) 
 	{        
-		/** DUMP Request 
-		file_put_contents( INER_FOLDER . 'request-items.log', var_export($request, true ) . PHP_EOL . PHP_EOL );*/
+		// Попытка авторизации через пароли приложений
+		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) )
+			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
 
-		/** DUMP $_SERVER для проверки авторизации */
-		$_SERVER['WP_User'] = wp_get_current_user();
-		file_put_contents( INER_FOLDER . 'var-server.log', var_export($_SERVER, true ) . PHP_EOL . PHP_EOL );		
-		
-		
-		
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() )
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );

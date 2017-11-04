@@ -25,6 +25,7 @@ require( INER_FOLDER . 'classes/plugin.php' );
 require( INER_FOLDER . 'classes/rolemanager.php' );
 require( INER_FOLDER . 'classes/report.php' );
 require( INER_FOLDER . 'classes/frontend.php' );
+require( INER_FOLDER . 'classes/settings.php' );
 require( INER_FOLDER . 'classes/activity-rest-controller.php' );
 
 /* Активация плагина */

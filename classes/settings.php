@@ -25,16 +25,19 @@ class Settings
 	protected $_params;
 	
 	/**
+	 * Массив хранения паролей приложений
+	 * @var mixed
+	 */
+	protected $appPasswords;
+	
+	/**
 	 * Конструктор
 	 * инициализирует параметры и загружает данные
-	 * @param string 		$optionName		Название опции в Wordpress, по умолчанию используется имя класса
 	 * @param R7K12\Plugin	$plugin			Ссылка на основной объект плагина
 	 */
-	public function __construct( $optionName = '', $plugin )
+	public function __construct( $plugin )
 	{
-		if ( empty ( $optionName ) ) $optionName = get_class( $this );
-		$this->_name = $optionName;
-		
+		$this->_name = get_class( $this );
 		$this->plugin = $plugin;
 		
 		// Загружаем параметры
@@ -43,8 +46,8 @@ class Settings
 		// Если это работа в админке
 		if ( is_admin() )
 		{
-			// Стили для админки
-			 wp_enqueue_style( INER, $this->plugin->url . 'assets/css/admin.css' );
+			// Стили для админки загружается классом report 
+			// wp_enqueue_style( INER, $this->plugin->url . 'assets/css/admin.css' );
 			
 			// Страница настроек
 			add_action( 'admin_menu', array( $this, 'addSettingsPage' ) );
@@ -58,6 +61,10 @@ class Settings
 	public function load()
 	{
 		$this->_params = get_option( $this->_name, array() );
+		
+		// Загрузка паролей приложений пользователя
+		$metaFields = get_user_meta( get_current_user_id(), RoleManager::APP_PASS_USER_META, true );
+		$this->appPasswords = ( !empty( $metaFields ) ) ? unserialize( $metaFields ) : array();		
 	}
 	
 	/**
@@ -66,6 +73,10 @@ class Settings
 	public function save()
 	{
 		update_option( $this->_name, $this->_params );
+		
+		// Сохранение паролей приложения
+		update_user_meta( get_current_user_id(), RoleManager::APP_PASS_USER_META, serialize( $this->appPasswords ) );
+		delete_transient( RoleManager::APP_PASS_CACHE );
 	}
 
 	/**
@@ -146,37 +157,82 @@ class Settings
 			} 
 			else 
 			{
-				// process form data
-				//$this->set( CRM::PROJECTKEY_PARAM, 				sanitize_text_field( $_POST['r7k12ProjectKey'] ) );	
-
+				// Добавление пароля приложения
+				if ( $_POST['submit'] == 'Создать' )
+				{
+					$application = sanitize_text_field( $_POST[ 'iner_app_name' ] );
+					if ( !empty( $application ) )
+					{
+						$key = RoleManager::generateKey();
+						$this->appPasswords[ $key ] = array
+						(
+							RoleManager::APP_PASS_USER_ID 	=> get_current_user_id(),
+							RoleManager::APP_PASS_NAME 		=> $application,
+							RoleManager::APP_PASS_SECRET 	=> RoleManager::generateKey( 'secret' )				
+						);					
+					}
+				}
+				
+				// Удаление пароля приложения
+				if ( in_array( 'X', $_POST ) )
+				{
+					$postFlip = array_flip( $_POST );
+					$key = $postFlip[ 'X' ];
+					unset( $this->appPasswords[ $key ] );
+				}				
 
 				// Save all data
-				$this->save();					
-				
-
+				$this->save();
 			}		
 		}
 		
 ?>
 <h1>Отчеты сотрудников</h1>
-<p>Параметры плашина in-employee-reports</p>
-<?php if ( $nonceError ) echo 'Ошибка поля nonce!'; ?>
+<p>Параметры плагина in-employee-reports</p>
+<?php if ( $nonceError ) echo '<p class="error">Ошибка поля nonce!</p>'; ?>
 
 <form id="iner-settings" action="<?php echo $_SERVER['REQUEST_URI']?>" method="post">
 	<?php wp_nonce_field( $nonceAction, $nonceField ) ?>
 	
-
-	
-	<h2>Пароли приложений</h2>
-    <p>Этот параметр позволяет создать пароли для подключения к REST API отчетов внешних приложений: Excel и др.</p>
-	<div class="iner-field">
-		<label for="r7k12CF7_name"><?php esc_html_e( 'Customer name fields', R7K12 ) ?></label>
-		<div class="r7k12-input">
-			<input id="r7k12CF7_name" name="r7k12CF7_name" type="text" 
-				   value="<?php echo esc_attr( $this->get( 1 ) ) ?>" />
-			<p><?php esc_html_e( 'Specify form fields with customer name delimeted by comma. For example: name-123, name-345', INER ) ?></p>
+	<fieldset>
+		<h2>Пароли приложений</h2>
+		<p>Эта функция позволяет создать пароли для подключения к REST API отчетов внешних приложений: Excel и др.<br>
+		   Для создания пароля введите произвольное имя приложения и нажмите кнопку [Создать].<br>
+		   Мы рекомендуем создавать для каждого приложения или сервиса свой пароль и не использовать один и тот же пароль дважды<br>
+		   В прилоджении в качестве логина указите значение ключа, в качестве пароля - секретного ключа<br>
+		   При необходимости удалите пароль, нажав на кнопку [х]</p>
+		   
+		<div class="iner-field">
+			<label for="iner_app_name">Приложение</label>
+			<div class="iner-input">
+				<input id="iner_app_name" name="iner_app_name" type="text" />
+			</div>	
+			<?php submit_button( 'Создать', 'secondary' ) ?>
 		</div>
-	</div>
+
+		<?php if ( count( $this->appPasswords ) ): ?>
+			<table id="iner-application-passwords">
+				<thead>
+					<tr>
+						<td>Приложение</td>
+						<td>Ключ</td>
+						<td colspan="2">Секретный ключ</td>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach( $this->appPasswords as $key => $value ): ?>
+						<tr>
+							<td><?php echo $value[ RoleManager::APP_PASS_NAME ] ?></td>
+							<td><?php echo $key ?></td>
+							<td><?php echo $value[ RoleManager::APP_PASS_SECRET ] ?></td>
+							<td><?php submit_button( 'X', 'delete', $key ) ?></td>
+						</tr>
+					<?php endforeach ?>
+				</tbody>
+			</table>
+		<?php endif ?>
+	
+	</fieldset>
 	
 	<?php submit_button() ?>
 </form>

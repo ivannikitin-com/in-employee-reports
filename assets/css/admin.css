@@ -6,3 +6,48 @@
 	display: inline-block;
 	width: 8em;
 }
+
+#iner-settings .iner-field
+{
+	clear: both;
+	margin-bottom: 2em;
+} 
+#iner-settings label
+{
+	display: inline-block;
+	width: 150px;
+	float: left;	
+}
+#iner-settings .iner-input
+{
+	margin-left: 160px;
+}
+#iner-settings .iner-input input[type=text],
+#iner-settings .iner-input textarea
+{
+	width: 80%;
+}
+
+#iner-settings .iner-input textarea
+{
+	height: 6em;
+}
+
+#iner-settings .iner-input p
+{
+	margin: 2px;
+}
+
+#iner-application-passwords, #iner-application-passwords td
+{
+	border: 1px solid #ccc;
+	border-spacing: 0;
+}
+#iner-application-passwords td
+{
+	padding: 1ex;
+}
+#iner-application-passwords thead
+{
+	font-weight: bold; 
+}
