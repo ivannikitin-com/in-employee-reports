@@ -139,10 +139,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
      * @param WP_REST_Request $request Объект текущего запроса
      */
     public function get_items( $request ) 
-	{
-		/** DUMP Request 
-		file_put_contents( INER_FOLDER . 'request-items.log', var_export($request, true ) . PHP_EOL . PHP_EOL );	*/	
-		
+	{		
 		// Параметры запроса
 		$employeeId = ( isset ($request['employeeId']) ) ? $request['employeeId'] : get_current_user_id();
 		$year = ( isset ($request['year']) ) ? $request['year'] : date('Y');
