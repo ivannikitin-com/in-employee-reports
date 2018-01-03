@@ -62,7 +62,7 @@ class Frontend extends Base
 			$allRoles[] = 'administrator';
 			// Для администратора выбираем всех сотрудгников и подрядчиков
 			$user_query = new \WP_User_Query( array( 'role__in' => $allRoles ) );
-			$employees[0] = 'Все';
+			$employees[0] = '_Все_';
 		}
 		else
 		{
@@ -76,8 +76,10 @@ class Frontend extends Base
 				$employees[ $user->ID ] = $user->display_name; 
 		}
 		
-		// Сортируем массив по имени
-		asort( $employees );
+		// Сортируем массив по имени здесь невозможна, поскольку в JS нет ассоциалитвных массивов, а после десериализации
+		// этот массив становится объектом, отсортированным по ключу. Сотрдировка должна быть на frontend'е
+		// asort( $employees );
+		
 		
 		// Спиок проектов для автозаполнения
 		$projectList = apply_filters( 'iner_projects', array( 'Оклад', 'Координация проектов' ), get_current_user_id() );

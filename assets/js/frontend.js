@@ -11,12 +11,26 @@ jQuery( function($)
 		txtYear = $('#inerYear'),
 		btnReload = $('#inerReload');
 	
-	// Список сотрудников
-	$.each( innerREST.employees, function( key, value ) {   
+	// Список сотрудников. Преобразуем объект в массив пар значений для сортировки
+	// https://stackoverflow.com/questions/43773092/how-to-sort-objects-by-value
+	var sortedEmployees = [];
+	for (var employeeKey in innerREST.employees)
+    	sortedEmployees.push( [ employeeKey, innerREST.employees[ employeeKey ] ] );
+
+	// Сортируем полученный массив пар значений
+	// https://stackoverflow.com/questions/1069666/sorting-javascript-object-by-property-value
+	sortedEmployees.sort( function( a, b ) {
+		var x = a[1].toLowerCase();
+		var y = b[1].toLowerCase();
+		return x < y ? -1 : x > y ? 1 : 0;		
+	});
+	
+	// Добавляем сотрудников из массива пар значений в выпадающий список
+	$.each( sortedEmployees, function( key, value ) {   
 		selEmployee
 			.append( $( '<option></option>' )
-			.attr( 'value', key )
-			.text( value ) );
+			.attr( 'value', value[0] )
+			.text( value[1] ) );
 	});
 	selEmployee.val( innerREST.currentUserId ).change();
 	
