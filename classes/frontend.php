@@ -69,11 +69,15 @@ class Frontend extends Base
 			// Для обычных пользователей берем данные из RoleManager
 			$user_query = new \WP_User_Query( array( 'include' => RoleManager::getAllowedUsers( get_current_user_id() ) ) );
 		}
+		
 		if ( ! empty( $user_query->results ) ) 
 		{
 			foreach ( $user_query->results as $user ) 
 				$employees[ $user->ID ] = $user->display_name; 
 		}
+		
+		// Сортируем массив по имени
+		asort( $employees );
 		
 		// Спиок проектов для автозаполнения
 		$projectList = apply_filters( 'iner_projects', array( 'Оклад', 'Координация проектов' ), get_current_user_id() );
