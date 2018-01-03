@@ -83,6 +83,7 @@ class Report extends Base
 			'has_archive'         => false,		
 			'exclude_from_search' => true,
 			'publicly_queryable'  => true,
+			/* TODO: Разобраться с разрешениями!*/
 			'capabilities'		  => array(   // https://codex.wordpress.org/Function_Reference/register_post_type#capabilities
 				// Meta capabilities
 				'edit_post' 			=> RoleManager::EDIT_ACTIVITY,
@@ -108,7 +109,7 @@ class Report extends Base
 			//'rest_controller_class' => 'WP_REST_Posts_Controller'			
 			'rest_controller_class' => '\INER\Activity_REST_Controller'			
 			);
-		register_post_type(self::CPT, $args );		
+		register_post_type(self::CPT, $args );
 	}
 	
 	/**
@@ -205,9 +206,8 @@ class Report extends Base
 <div>
 	<label for="{$rateFiled}">Ставка</label>
 	<input id="{$rateFiled}" type="text" name="{$rateFiled}" value="{$rate}"/>
-</div>	
+</div>
 END_OF_HTML;
-		
 		echo $html;
 	}	
 	
@@ -255,11 +255,12 @@ END_OF_HTML;
 		{
 			$this->wpUpdatePostInProcess = true;
 			
-			wp_update_post( array(
+			$postData = array(
 				'ID'		=> $postID,
 				'post_date'	=> $date,
-			) ); 
-
+			); 
+			
+			wp_update_post( $postData );
 			update_post_meta( $postID, self::META_PROJECT, 	$project);
 			update_post_meta( $postID, self::META_QUO, 		$quo);
 			update_post_meta( $postID, self::META_RATE, 	$rate);			

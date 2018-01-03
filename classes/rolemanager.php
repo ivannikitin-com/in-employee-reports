@@ -3,6 +3,7 @@
  * Класс реализует управление ролями и разрешениями
  */
 namespace INER;
+
 class RoleManager
 {
 	/**
@@ -30,7 +31,7 @@ class RoleManager
 				self::DELETE_ACTIVITY 			=> true, 
 				self::CREATE_ACTIVITY 			=> true, 
 				self::READ_OTHER_ACTIVITIES 	=> true, 
-				self::EDIT_OTHER_ACTIVITIES 	=> false, 
+				self::EDIT_OTHER_ACTIVITIES 	=> true, 
 				self::DELETE_OTHER_ACTIVITIES	=> false, 
 			),
 		'baseRole' => 'author'	
@@ -56,26 +57,26 @@ class RoleManager
 	 *
 	 * Разрешения на выполнения операций над своей записью отчета
 	 */	
-	const READ_ACTIVITY 	= 'iner_read_activity';			// Просмотр своей записи, оно же, доступ к отчетам вообще
-	const EDIT_ACTIVITY 	= 'iner_edit_activity';			// Редактирование своей записи
+	const READ_ACTIVITY 		= 'iner_read_activity';			// Просмотр своей записи, оно же, доступ к отчетам вообще
+	const EDIT_ACTIVITY 		= 'iner_edit_activity';			// Редактирование своей записи
 	const DELETE_ACTIVITY 	= 'iner_delete_activity';		// Удаление своей записи
 	const CREATE_ACTIVITY 	= 'iner_create_activity';		// Создание (и публикация) своей записи
 	
 	/**
 	 * Разрешения на выполнения операций над чужими записями отчета
 	 */	
-	const READ_OTHER_ACTIVITIES 	= 'iner_read_other_activities';		// Просмотр "чужих" записей
-	const EDIT_OTHER_ACTIVITIES 	= 'iner_edit_other_activities';		// Редактирование "чужих" записей
+	const READ_OTHER_ACTIVITIES 		= 'iner_read_other_activities';		// Просмотр "чужих" записей
+	const EDIT_OTHER_ACTIVITIES 		= 'iner_edit_other_activities';		// Редактирование "чужих" записей
 	const DELETE_OTHER_ACTIVITIES 	= 'iner_delete_other_activities';	// Удаление "чужих" записей
 	
 	/**
 	 * Пароли приложений пользователя
 	 */	
 	const APP_PASS_USER_META 	= 'app_password';		// Мета-поле пользователя, в котором хранится сериализованный массив с паролем
-	const APP_PASS_CACHE 		= 'iner_app_password';	// Кэш, в котором хранится массив со всеми паролями
-	const APP_PASS_NAME 		= 'application';		// Параметр массива: название приложения
+	const APP_PASS_CACHE 			= 'iner_app_password';	// Кэш, в котором хранится массив со всеми паролями
+	const APP_PASS_NAME 			= 'application';		// Параметр массива: название приложения
 	const APP_PASS_USER_ID 		= 'user';				// Параметр массива: ID пользователя
-	const APP_PASS_KEY 			= 'key';				// Параметр массива: ключ приложения
+	const APP_PASS_KEY 				= 'key';				// Параметр массива: ключ приложения
 	const APP_PASS_SECRET 		= 'secret';				// Параметр массива: секретный ключ приложени	
 	
 	/**
@@ -95,12 +96,16 @@ class RoleManager
 			$caps = array_merge( $baseRole->capabilities, $props['caps'] );
 			
 			// Регистрация новой роли пользователя с разрешениями
-			if ( ! add_role( $role, $props['title'], $caps ) )
+			add_role( $role, $props['title'] );
+			
+			// Установка разрешений для роли
+			$currentRole = get_role( $role );				
+			foreach ( $props[ 'caps' ] as $cap => $hasCap )
 			{
-				// Такая роль уже зарегистрирована, просто добавим разрешения в эту роль
-				$currentRole = get_role( $role );				
-				foreach ( $caps as $cap => $value )
-					$currentRole->add_cap( $cap, $value );	
+				if ( $hasCap )
+					$currentRole->add_cap( $cap );		
+				else
+					$currentRole->remove_cap( $cap );
 			}
 		}
 		
@@ -151,12 +156,12 @@ class RoleManager
 		if ( $userId == $postAuthorId )
 		{
 			// Возвратим права на "свое" действие
-			return user_can( $userId, $ownCap );
+			return self::user_can( $userId, $ownCap );
 		}	
 		else
 		{
 			// Если пользователь имеет право работать с "чужими" записями
-			if ( user_can( $userId, $otherCap ) )
+			if ( self::user_can( $userId, $otherCap ) )
 			{
 				// Список разрешенных пользователей
 				$allowedUsers = self::getAllowedUsers( $userId ) ;
@@ -171,6 +176,34 @@ class RoleManager
 		// Если что-то не сработало, то запрещаем действие
 		return false;
     }
+	
+	/**
+	 * Проверяет разрещение пользователя при назначении ему множественных ролей
+	 * @param int			$userId				ID пользователя
+	 * @param string	$capability		Разрешение
+	 * @static
+	 */    
+	public static function user_can( $userId, $capability ) 
+	{
+		// Получим текущего пользователя
+		$user = new \WP_User( $userId );
+		
+		if ( count($user->roles) == 0 )
+			return false;
+		
+		// Проверим каждую роль пользователя
+		foreach ($user->roles as $role)
+		{
+			$currentRole = get_role( $role );
+			if ( $currentRole->capabilities[ $capability ] )
+				return true;				
+		}
+		
+		// Разрешение не найдено!
+		return false;
+	}
+	
+	
 	
 	/**
 	 * Возвращает список пользователей, разрешенных для просмотра указанному пользователю

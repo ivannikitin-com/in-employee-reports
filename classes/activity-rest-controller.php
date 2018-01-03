@@ -128,7 +128,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
 		
 		// Проверка прав на доступ к отчетам
-		if ( ! current_user_can( RoleManager::READ_ACTIVITY ) ) 
+		if ( ! RoleManager::user_can( get_current_user_id(), RoleManager::READ_ACTIVITY ) ) 
 			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к отчетам!', array( 'status' => '403' ) );
         
 		return true;
