@@ -33,8 +33,11 @@ class Plugin
 		$this->path = $pluginPath;	// Путь к файлам плагина
 		$this->url = $pluginURL;	// URL к файлам плагина
 		
-		// Инициализация плагина по хуку init
-		add_action( 'init', array( $this, 'init' ) );
+		// Инициализация плагина по хуку init если пользователь авторизован
+		if ( wp_get_current_user() )
+		{
+			add_action( 'init', array( $this, 'init' ) );
+		}
 	}		
 	
 	/**

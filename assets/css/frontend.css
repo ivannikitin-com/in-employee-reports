@@ -17,9 +17,15 @@
 
 #inerFilter
 {
+	padding: 3em;
 	padding-bottom: 5px;
 	margin-bottom: 5px;
 	border-bottom: 1px solid #ccc;
+}
+
+#inerFilter label
+{
+	width: 100px;
 }
 
 #inerEmployee, #inerMonth, #inerYear, #inerReload

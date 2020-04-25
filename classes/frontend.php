@@ -22,7 +22,7 @@ class Frontend extends Base
 	{
 		// Родительский конструктор
 		parent::__construct( $plugin );
-		
+
 		// Загрузка активов (CSS, JS) на фронтэнде
 		add_action( 'wp_enqueue_scripts', array( $this, 'loadAssets' ) );
 		
@@ -42,7 +42,7 @@ class Frontend extends Base
 		
 		// Регистрация CSS
 		wp_register_style( 'handsontable', $this->plugin->url . 'assets/handsontable/dist/handsontable.full.min.css', array(), '0.34.4');
-		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '2.0');
+		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '2.1');
 
 		// Загрузка CSS перенесена в метод getHTML, чтобы не грузить их на всех страницах
 

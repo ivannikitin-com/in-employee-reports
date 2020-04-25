@@ -64,7 +64,7 @@ class Settings
 		
 		// Загрузка паролей приложений пользователя
 		$metaFields = get_user_meta( get_current_user_id(), RoleManager::APP_PASS_USER_META, true );
-		$this->appPasswords = ( !empty( $metaFields ) ) ? unserialize( $metaFields ) : array();		
+		$this->appPasswords = ( !empty( $metaFields ) && strlen($metaFields) > 3 ) ? unserialize( $metaFields ) : array();		
 	}
 	
 	/**
