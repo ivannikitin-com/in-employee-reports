@@ -26,7 +26,20 @@
 #inerFilter label
 {
 	width: 100px;
+	display: inline;
 }
+
+#inerFilter select, #inerFilter input
+{
+	height: 2em;
+}
+
+#inerFilter select
+{
+	padding-right: 2em;
+}
+
+
 
 #inerEmployee, #inerMonth, #inerYear, #inerReload
 {
