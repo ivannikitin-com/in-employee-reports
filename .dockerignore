@@ -1,0 +1,7 @@
+.env
+.git
+.login
+docker-compose.yml
+.dockerignore
+.backup
+.misc

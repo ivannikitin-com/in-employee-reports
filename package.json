@@ -1,0 +1,19 @@
+{
+  "name": "in-employee-reports",
+  "version": "1.0.0",
+  "description": "WordPress plugin for employee reports.",
+  "main": "source/assets/js/frontend.js",
+  "scripts": {
+    "install-dependencies": "npm install",
+    "build": "powershell -Command \"New-Item -ItemType Directory -Force -Path source/assets/dist; Copy-Item -Path node_modules/handsontable/dist/handsontable.full.min.css -Destination source/assets/dist/; Copy-Item -Path node_modules/handsontable/dist/handsontable.full.min.js -Destination source/assets/dist/; Copy-Item -Path node_modules/handsontable/dist/languages/ru-RU.min.js -Destination source/assets/dist/\""
+  },
+  "keywords": [
+    "wordpress",
+    "plugin"
+  ],
+  "author": "",
+  "license": "GPL-2.0-or-later",
+  "dependencies": {
+    "handsontable": "^14.4.0"
+  }
+}
