@@ -26,7 +26,10 @@ define( 'INER_URL', plugin_dir_url( __FILE__ ) );       // Plugin URL
 register_activation_hook( __FILE__, 'iner_activation' );
 function iner_activation() {
 	// Инициализация ролей пользователей
-	InEmployeeReports\RoleManager::initRoles();
+	InEmployeeReports\Permissions_Manager::initRoles();
+
+	// Миграция старых ролей
+	InEmployeeReports\Permissions_Manager::migrate_old_roles();
 }
 
 /* Инициализация плагина */
@@ -37,4 +40,16 @@ function iner_init() {
 
 	// Загрузка плагина
 	new InEmployeeReports\Plugin( INER_FOLDER, INER_URL );
+}
+
+/* Подключение хука map_meta_cap для управления правами доступа */
+add_action( 'init', 'iner_setup_capabilities' );
+function iner_setup_capabilities() {
+	// Подключаем map_meta_cap для проверки прав доступа
+	add_filter(
+		'map_meta_cap',
+		array( 'InEmployeeReports\\Permissions_Manager', 'map_meta_cap' ),
+		10,
+		4
+	);
 }

@@ -1,322 +1,381 @@
 /**
- * Загрузка данных в HOT
+ * Фронтенд скрипт для отображения отчетов с использованием AG Grid
  */
-jQuery( function($)
-{
-	// Элементы
-	var totalQuo = $('#totalQuo'),
-		totalSum = $('#totalSum'),
-		selEmployee = $('#inerEmployee'),
-		selMonth = $('#inerMonth'),
-		txtYear = $('#inerYear'),
-		btnReload = $('#inerReload');
-	
-	// Список сотрудников. Преобразуем объект в массив пар значений для сортировки
-	// https://stackoverflow.com/questions/43773092/how-to-sort-objects-by-value
-	var sortedEmployees = [];
-	for (var employeeKey in innerREST.employees)
-    	sortedEmployees.push( [ employeeKey, innerREST.employees[ employeeKey ] ] );
+jQuery( function( $ ) {
+	'use strict';
 
-	// Сортируем полученный массив пар значений
-	// https://stackoverflow.com/questions/1069666/sorting-javascript-object-by-property-value
-	sortedEmployees.sort( function( a, b ) {
-		var x = a[1].toLowerCase();
-		var y = b[1].toLowerCase();
-		return x < y ? -1 : x > y ? 1 : 0;		
-	});
-	
-	// Добавляем сотрудников из массива пар значений в выпадающий список
-	$.each( sortedEmployees, function( key, value ) {   
-		selEmployee
-			.append( $( '<option></option>' )
-			.attr( 'value', value[0] )
-			.text( value[1] ) );
-	});
-	selEmployee.val( innerREST.currentUserId ).change();
-	
-	// Текущая дата
-	var dateNow = new Date();
-	selMonth.val( dateNow.getMonth() + 1 ).change();
-	txtYear.val( dateNow.getFullYear() );
+	// === Элементы UI ===
+	const elements = {
+		totalQuo: $( '#totalQuo' ),
+		totalSum: $( '#totalSum' ),
+		selEmployee: $( '#inerEmployee' ),
+		selMonth: $( '#inerMonth' ),
+		txtYear: $( '#inerYear' ),
+		btnReload: $( '#inerReload' ),
+		btnExport: $( '#inerExport' ),
+		message: $( '#inerMessage' ),
+		gridContainer: document.getElementById( 'inerGrid' )
+	};
 
-	// Handsontable
-	var container = $("#inerHot")
-		.handsontable({
-			colHeaders: [ 'Код', 'Сотрудник', 'Дата', 'Проект', 'Кол.', 'Ставка', 'Комментарий'],
-			columns: [
-				{data: 'id', type: 'numeric', readOnly: true },
-				{data: 'employee', readOnly: true },
-				{data: 'date', type: 'date', dateFormat: 'DD.MM.YYYY', correctFormat: true },
-				{data: 'project', type: 'autocomplete', source: innerREST.projects, strict: false, visibleRows: 5 },
-				{data: 'quo', type: 'numeric',  format: '0,0.[000]', language: 'ru-RU' }, 
-				{data: 'rate', type: 'numeric', format: '0,0 $', language: 'ru-RU'  },
-				{data: 'comment'  }
-			],
-			columnSorting: true,
-			startRows: 1,
-			startCols: 7,
-			rowHeaders: false,
-			minSpareRows: 1,
-			stretchH: 'all',
-			 preventOverflow: 'horizontal',
-			afterChange: dataChanged,
-			contextMenu: {
-			  items: {
-				"row_above": { name: 'Вставить ряд выше' },
-				"row_below": { name: 'Вставить ряд ниже'},
-				"hsep1": "---------",
-				"remove_row": { name: 'Удалить ряд' }
-			  }
-			},
-		beforeRemoveRow: deleteRows	
-	});	
-	var hotInstance = $("#inerHot").handsontable('getInstance');
-
-	// Сообщение на экране
-	function Message( selectror, hideCallback )
-	{
-		this.count = 0;
-		this.banner = $( selectror );
-		this.hideCallBack = hideCallback;
-		this.show = function( message )
+	// === Конфигурация AG Grid ===
+	const columnDefs = [
 		{
-			if ( this.banner )
-			{
-				this.banner.text( message ).show( 'fast' );
-				this.count++;
-			}	
-		}
-		this.hide = function( message )
+			field: 'id',
+			headerName: 'Код',
+			width: 80,
+			editable: false,
+			filter: 'agNumberColumnFilter',
+			sortable: true
+		},
 		{
-			if ( this.banner )
-			{
-				if ( message )
-					this.banner.text( message );
-					
-				this.count--;				
-				if ( this.count <= 0 )
-				{
-					this.banner.hide( 'fast' );
-					this.count = 0;
-					// Все погашено, вызываем колбек
-					if ( this.hideCallBack )
-						this.hideCallBack();
+			field: 'employee',
+			headerName: 'Сотрудник',
+			width: 150,
+			editable: false,
+			filter: 'agTextColumnFilter',
+			sortable: true
+		},
+		{
+			field: 'date',
+			headerName: 'Дата',
+			width: 120,
+			editable: true,
+			sortable: true,
+			valueFormatter: function( params ) {
+				if ( ! params.value ) {
+					return '';
 				}
+				return moment( params.value ).format( 'DD.MM.YYYY' );
+			},
+			valueSetter: function( params ) {
+				const newDate = moment( params.newValue, 'DD.MM.YYYY' );
+				if ( newDate.isValid() ) {
+					params.data.date = newDate.format( 'YYYY-MM-DD' );
+					return true;
+				}
+				return false;
 			}
-		}	
-	}
-	var message = new Message( '#inerMessage', function(){
-		// Рассчет итоговых значений, когда будет погашен баннер
-		var data = hotInstance.getData(),
-		 	quo = 0,
-			sum = 0;
-		innerREST.debug && console.log( 'Total data:', data );
-		for (var i=0; i < data.length; i++)
+		},
 		{
-			quo += data[i][4] * 1;
-			sum += data[i][4] * data[i][5];
+			field: 'project',
+			headerName: 'Проект',
+			width: 200,
+			editable: true,
+			filter: 'agTextColumnFilter',
+			sortable: true,
+			cellEditor: 'agSelectCellEditor',
+			cellEditorParams: {
+				values: innerREST.projects || []
+			}
+		},
+		{
+			field: 'quo',
+			headerName: 'Кол.',
+			width: 100,
+			editable: true,
+			sortable: true,
+			filter: 'agNumberColumnFilter',
+			valueFormatter: function( params ) {
+				return params.value ? parseFloat( params.value ).toFixed( 2 ) : '0.00';
+			},
+			valueSetter: function( params ) {
+				const value = parseFloat( params.newValue );
+				if ( ! isNaN( value ) ) {
+					params.data.quo = value;
+					return true;
+				}
+				return false;
+			}
+		},
+		{
+			field: 'rate',
+			headerName: 'Ставка',
+			width: 100,
+			editable: true,
+			sortable: true,
+			filter: 'agNumberColumnFilter',
+			valueFormatter: function( params ) {
+				return params.value ? parseFloat( params.value ).toFixed( 2 ) + ' ₽' : '0.00 ₽';
+			},
+			valueSetter: function( params ) {
+				const value = parseFloat( params.newValue );
+				if ( ! isNaN( value ) ) {
+					params.data.rate = value;
+					return true;
+				}
+				return false;
+			}
+		},
+		{
+			field: 'comment',
+			headerName: 'Комментарий',
+			flex: 1,
+			editable: true,
+			filter: 'agTextColumnFilter',
+			sortable: true
 		}
-		totalQuo.text( numbro( quo ).format('0,0.[000]')  );
-		totalSum.text( numbro( sum ).format('0,0.[00] $')  );
-	});	
-	
-	
-	
-	// Загрузка данных	
-	loadData();
-	btnReload.on('click', function(){ loadData(); });
-	selEmployee.on('change', function(){ loadData(); });
-	selMonth.on('change', function(){ loadData(); });
-	txtYear.on('change', function(){ loadData(); });
-	
-	function loadData() 
-	{
-		message.show( 'Загрузка данных' );
-		$.ajax({
+	];
+
+	const gridOptions = {
+		columnDefs: columnDefs,
+		defaultColDef: {
+			sortable: true,
+			filter: true,
+			resizable: true
+		},
+		rowSelection: 'multiple',
+		animateRows: true,
+		onCellValueChanged: handleCellChanged,
+		onRowDataUpdated: updateTotals,
+		getRowId: function( params ) {
+			return params.data.id ? params.data.id.toString() : 'new-' + Date.now();
+		},
+		localeText: {
+			// Русская локализация для AG Grid
+			noRowsToShow: 'Нет данных для отображения',
+			loadingOoo: 'Загрузка...'
+		}
+	};
+
+	// Инициализация AG Grid
+	const gridApi = agGrid.createGrid( elements.gridContainer, gridOptions );
+
+	// === Обработчики событий ===
+
+	/**
+	 * Обработчик изменения ячейки
+	 */
+	function handleCellChanged( event ) {
+		const rowData = event.data;
+
+		if ( ! rowData.id ) {
+			// Создание новой записи
+			showMessage( 'Добавление новой записи' );
+			createReport( rowData )
+				.done( function( response ) {
+					rowData.id = response.id;
+					rowData.employee = response.employee;
+					// Обновляем ячейки в строке
+					gridApi.refreshCells( { rowNodes: [ event.node ], force: true } );
+					showMessage( 'Запись #' + response.id + ' добавлена' );
+					setTimeout( hideMessage, 2000 );
+				} )
+				.fail( handleAjaxError );
+		} else {
+			// Обновление существующей записи
+			showMessage( 'Обновление записи' );
+			updateReport( rowData )
+				.done( function( response ) {
+					showMessage( 'Запись #' + response.id + ' обновлена' );
+					setTimeout( hideMessage, 2000 );
+					updateTotals();
+				} )
+				.fail( handleAjaxError );
+		}
+	}
+
+	/**
+	 * Загрузка данных из REST API
+	 */
+	function loadData() {
+		showMessage( 'Загрузка данных' );
+
+		$.ajax( {
 			url: innerREST.root + 'reports/v2/activity/',
 			method: 'GET',
-			beforeSend: function ( xhr ) {
+			beforeSend: function( xhr ) {
 				xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
 			},
-			data:{
-				'employeeId' : selEmployee.val(),
-				'month' : selMonth.val(),
-				'year' : txtYear.val()
+			data: {
+				employeeId: elements.selEmployee.val(),
+				month: elements.selMonth.val(),
+				year: elements.txtYear.val()
 			}
-		})
-		.done( function ( response ) {
-			// Преобразовамние данных и даты
-			innerREST.debug && console.log( 'response', response );
-			var resultData = [];
-			for (var i=0; i<response.length; i++)
-			{
-				response[i].data.date = moment(response[i].data.date).format('DD.MM.YYYY');
-				response[i].data.quo = parseFloat( response[i].data.quo.toString().replace(/,/, '.') );
-				response[i].data.rate = parseFloat( response[i].data.rate.toString().replace(/,/, '.') );
-				resultData.push( response[i].data );					
-			}
-			hotInstance.loadData( resultData );
-			message.hide();
-		})
-		.fail(function( jqXHR, exception ) {
-			innerREST.debug && console.log( 'loadData exception:', jqXHR, exception );
-			var errorMsg = (typeof jqXHR.responseJSON.message !== 'undefined' ) ? jqXHR.responseJSON.message : 'Запрос данных не удался';
-			$( '<div>' + errorMsg + '</div>').dialog({
-				modal: true,
-				title: "Ошибка получения данных",
-				width: 500,
-				buttons: { Ok: function() { $( this ).dialog( "close" ) } }
-			});
-			message.hide();
-	  	});	
+		} )
+			.done( function( response ) {
+				innerREST.debug && console.log( 'loadData response:', response );
+
+				// Преобразование данных
+				const processedData = response.map( function( item ) {
+					// response возвращает объект с полем data
+					const itemData = item.data || item;
+					return {
+						id: itemData.id,
+						employee: itemData.employee,
+						date: moment( itemData.date ).format( 'YYYY-MM-DD' ),
+						project: itemData.project || '',
+						quo: parseFloat( itemData.quo ) || 0,
+						rate: parseFloat( itemData.rate ) || 0,
+						comment: itemData.comment || ''
+					};
+				} );
+
+				gridApi.setGridOption( 'rowData', processedData );
+				updateTotals();
+				hideMessage();
+			} )
+			.fail( handleAjaxError );
 	}
-	
-	// Обновление данных
-	// http://ivannikitin.ivan.wp-server.ru/wp-content/plugins/in-employee-reports/assets/handsontable/demo/ajax.html
-	function dataChanged( change, source )
-	{
-		//innerREST.debug && console.log( 'dataChanged:', source, change );
-		
-		// Это загрузка данных. Не сохраняем
-		if (source === 'loadData' || source === 'programUpdate' )
-		  return;	
-		
-		// Текущий массив данных в таблице
-		var data = hotInstance.getData();
-		
-		// Данные для передачи
-		var payLoad = {},
-			dateRec, 
-			currentTime,
-			dateFormat = "YYYY-MM-DD HH:mm:ss";
-			
-		// Массив изменений
-		for (var i=0; i < change.length; i++)
-		{
-			// Код измененной записи
-			var rowNum = change[i][0];
-			var rowId = data[rowNum][0];
-			innerREST.debug && console.log( 'Измененный ID:', rowId );
-			
-			// Если ID существует, то запись есть, иначе новый ряд
-			if ( rowId )
-			{
-				// Изменение записи
-				payLoad = {};
-				payLoad[change[i][1]] = change[i][3];
-				innerREST.debug && console.log( 'Изменение записи:', rowId, payLoad );
-				message.show( 'Обновление данных ');
-				$.ajax({
-					url: innerREST.root + 'reports/v2/activity/' + rowId,
-					method: 'POST',
-					beforeSend: function ( xhr ) {
-						xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
-					},
-					data: payLoad
-				})
-				.done( function ( response ) {
-					// В ответ приходит измененная запись
-					innerREST.debug && console.log( 'response', response );
-					hotInstance.setDataAtCell(rowNum, 1, response.employee, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 2, moment(response.date).format('DD.MM.YYYY'), 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 3, response.project, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 4, response.quo, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 5, response.rate, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 6, response.comment, 'programUpdate');					
-					message.hide( 'Запись #' + response.id + ' обновлена');
-				})
-				.fail(function( jqXHR, exception ) {
-					innerREST.debug && console.log( 'loadData exception:', jqXHR, exception );
-					var errorMsg = (typeof jqXHR.responseJSON.message !== 'undefined' ) ? jqXHR.responseJSON.message : 'Запрос данных не удался';
-					$( '<div>' + errorMsg + '</div>').dialog({
-						modal: true,
-						title: "Ошибка обновления данных",
-						width: 500,
-						buttons: { Ok: function() { $( this ).dialog( "close" ) } }
-					});
-					message.hide();
-				});					
+
+	/**
+	 * Обновление итоговых значений
+	 */
+	function updateTotals() {
+		let totalQuo = 0;
+		let totalSum = 0;
+
+		gridApi.forEachNode( function( node ) {
+			if ( node.data && node.data.quo && node.data.rate ) {
+				const quo = parseFloat( node.data.quo ) || 0;
+				const rate = parseFloat( node.data.rate ) || 0;
+				totalQuo += quo;
+				totalSum += quo * rate;
 			}
-			else
-			{
-				// Добавление записи
-				innerREST.debug && console.log( 'Добавление записи');
-				payLoad = {};
-				payLoad[ change[i][1] ] = change[i][3];	
-				innerREST.debug && console.log( 'Добавление записи:', rowId, payLoad );
-				message.show( 'Добавление новой записи' );
-				$.ajax({
-					url: innerREST.root + 'reports/v2/activity/',
-					method: 'POST',
-					beforeSend: function ( xhr ) {
-						xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
-					},
-					data: payLoad
-				})
-				.done( function ( response ) {
-					// В ответ приходит добавленная запись
-					innerREST.debug && console.log( 'response', response );
-					// Добавляем полкченные с сервера поля ID сотрудника и даты
-					hotInstance.setDataAtCell(rowNum, 0, response.id, 'programUpdate');  
-					hotInstance.setDataAtCell(rowNum, 1, response.employee, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 2, moment(response.date).format('DD.MM.YYYY'), 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 3, response.project, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 4, response.quo, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 5, response.rate, 'programUpdate');
-					hotInstance.setDataAtCell(rowNum, 6, response.comment, 'programUpdate');
-					message.hide( 'Запись #' + response.id + ' добавлена');
-				})
-				.fail(function( jqXHR, exception ) {
-					innerREST.debug && console.log( 'loadData exception:', jqXHR, exception );
-					var errorMsg = (typeof jqXHR.responseJSON.message !== 'undefined' ) ? jqXHR.responseJSON.message : 'Запрос данных не удался';
-					$( '<div>' + errorMsg + '</div>').dialog({
-						modal: true,
-						title: "Ошибка обновления данных",
-						width: 500,
-						buttons: { Ok: function() { $( this ).dialog( "close" ) } }
-					});
-					message.hide();
-				});	
+		} );
+
+		elements.totalQuo.text( totalQuo.toFixed( 2 ) );
+		elements.totalSum.text( totalSum.toFixed( 2 ) + ' ₽' );
+	}
+
+	/**
+	 * Экспорт в CSV
+	 */
+	function exportToCsv() {
+		gridApi.exportDataAsCsv( {
+			fileName: 'employee-reports-' +
+				elements.txtYear.val() + '-' +
+				elements.selMonth.val() + '.csv',
+			columnSeparator: ';',
+			skipColumnHeaders: false
+		} );
+
+		showMessage( 'Экспорт завершен' );
+		setTimeout( hideMessage, 2000 );
+	}
+
+	// === REST API функции ===
+
+	/**
+	 * Создание новой записи
+	 */
+	function createReport( data ) {
+		return $.ajax( {
+			url: innerREST.root + 'reports/v2/activity/',
+			method: 'POST',
+			beforeSend: function( xhr ) {
+				xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
+			},
+			data: {
+				date: moment( data.date ).format( 'DD.MM.YYYY' ),
+				project: data.project || '',
+				quo: data.quo || 0,
+				rate: data.rate || 0,
+				comment: data.comment || ''
 			}
+		} );
+	}
+
+	/**
+	 * Обновление существующей записи
+	 */
+	function updateReport( data ) {
+		return $.ajax( {
+			url: innerREST.root + 'reports/v2/activity/' + data.id,
+			method: 'POST',
+			beforeSend: function( xhr ) {
+				xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
+			},
+			data: {
+				date: moment( data.date ).format( 'DD.MM.YYYY' ),
+				project: data.project || '',
+				quo: data.quo || 0,
+				rate: data.rate || 0,
+				comment: data.comment || ''
+			}
+		} );
+	}
+
+	// === Вспомогательные функции ===
+
+	/**
+	 * Показать сообщение
+	 */
+	function showMessage( message ) {
+		elements.message.text( message ).show( 'fast' );
+	}
+
+	/**
+	 * Скрыть сообщение
+	 */
+	function hideMessage() {
+		elements.message.hide( 'fast' );
+	}
+
+	/**
+	 * Обработчик ошибок AJAX
+	 */
+	function handleAjaxError( jqXHR, textStatus, errorThrown ) {
+		innerREST.debug && console.log( 'AJAX error:', jqXHR, textStatus, errorThrown );
+
+		let errorMsg = 'Запрос не удался';
+		if ( jqXHR.responseJSON && jqXHR.responseJSON.message ) {
+			errorMsg = jqXHR.responseJSON.message;
 		}
-	}
-	
-	// Удаление данных
-	function deleteRows( index, amount )
-	{	
-		innerREST.debug && console.log( 'Удаление ' + amount + ' рядов, начиная с ' + index);
-		
-		// Текущий массив данных в таблице
-		var data = hotInstance.getData();
-		for (var i=0; i < amount; i++ )
-		{
-			var id = data[index + i][0];
-			innerREST.debug && console.log( 'Удаление ряда #' + id);
-			message.show( 'Удаление записей' );
-			$.ajax({
-				url: innerREST.root + 'reports/v2/activity/' + id,
-				method: 'DELETE',
-				beforeSend: function ( xhr ) {
-					xhr.setRequestHeader( 'X-WP-Nonce', innerREST.nonce );
+
+		$( '<div>' + errorMsg + '</div>' ).dialog( {
+			modal: true,
+			title: 'Ошибка',
+			width: 500,
+			buttons: {
+				Ok: function() {
+					$( this ).dialog( 'close' );
 				}
-			})
-			.done( function ( response ) {
-				// В ответ приходит флаг успешности и ID удаленной записи
-				innerREST.debug && console.log( 'response', response );
-				message.hide( 'Запись #' + response.id + ' удалена');
-			})
-			.fail(function( jqXHR, exception ) {
-				innerREST.debug && console.log( 'loadData exception:', jqXHR, exception );
-				var errorMsg = (typeof jqXHR.responseJSON.message !== 'undefined' ) ? jqXHR.responseJSON.message : 'Удаление данных не удалось';
-				$( '<div>' + errorMsg + '</div>').dialog({
-					modal: true,
-					title: "Ошибка удаления данных",
-					width: 500,
-					buttons: { Ok: function() { $( this ).dialog( "close" ) } }
-				});
-				message.hide();
-			});				
-		}		
+			}
+		} );
+
+		hideMessage();
 	}
-	
-});
+
+	/**
+	 * Инициализация списка сотрудников
+	 */
+	function initializeFilters() {
+		// Список сотрудников - преобразуем объект в массив и сортируем
+		const sortedEmployees = [];
+		for ( const employeeKey in innerREST.employees ) {
+			sortedEmployees.push( [ employeeKey, innerREST.employees[ employeeKey ] ] );
+		}
+
+		// Сортируем по имени
+		sortedEmployees.sort( function( a, b ) {
+			const x = a[ 1 ].toLowerCase();
+			const y = b[ 1 ].toLowerCase();
+			return x < y ? -1 : x > y ? 1 : 0;
+		} );
+
+		// Добавляем в select
+		$.each( sortedEmployees, function( key, value ) {
+			elements.selEmployee.append(
+				$( '<option></option>' )
+					.attr( 'value', value[ 0 ] )
+					.text( value[ 1 ] )
+			);
+		} );
+
+		// Устанавливаем текущего пользователя
+		elements.selEmployee.val( innerREST.currentUserId );
+
+		// Текущий месяц и год
+		const dateNow = new Date();
+		elements.selMonth.val( dateNow.getMonth() + 1 );
+		elements.txtYear.val( dateNow.getFullYear() );
+	}
+
+	// === Инициализация ===
+	initializeFilters();
+	loadData();
+
+	// Обработчики событий UI
+	elements.btnReload.on( 'click', loadData );
+	elements.btnExport.on( 'click', exportToCsv );
+} );

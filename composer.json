@@ -20,6 +20,7 @@
         "wp-coding-standards/wpcs": "^2.3"
     },
     "scripts": {
+        "test": "phpunit",
         "lint": "phpcs -d memory_limit=256M --standard=WordPress --exclude=WordPress.WhiteSpace.ControlStructureSpacing --ignore=source/assets/,vendor/,node_modules/ source/",
         "lint-fix": "phpcbf -d memory_limit=256M --standard=WordPress --exclude=WordPress.WhiteSpace.ControlStructureSpacing --ignore=source/assets/,vendor/,node_modules/ source/"
     }

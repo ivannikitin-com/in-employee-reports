@@ -84,30 +84,29 @@ class Report extends Base {
 			'has_archive'           => false,
 			'exclude_from_search'   => true,
 			'publicly_queryable'    => true,
-			/* TODO: Разобраться с разрешениями!*/
-			'capabilities'          => array(   // https://codex.wordpress.org/Function_Reference/register_post_type#capabilities
+			'capabilities'          => array(
 				// Meta capabilities
-				'edit_post'              => RoleManager::EDIT_ACTIVITY,
-				'read_post'              => RoleManager::READ_ACTIVITY,
-				'delete_post'            => RoleManager::DELETE_ACTIVITY,
+				'edit_post'              => Permissions_Manager::EDIT_ACTIVITY,
+				'read_post'              => Permissions_Manager::READ_ACTIVITY,
+				'delete_post'            => Permissions_Manager::DELETE_ACTIVITY,
 				// Primitive capabilities used outside of map_meta_cap()
-				'edit_posts'             => RoleManager::EDIT_ACTIVITY,
-				'edit_others_posts'      => RoleManager::EDIT_OTHER_ACTIVITIES,
-				'publish_posts'          => RoleManager::EDIT_ACTIVITY,
-				'read_private_posts'     => RoleManager::READ_OTHER_ACTIVITIES,
+				'edit_posts'             => Permissions_Manager::EDIT_ACTIVITY,
+				'edit_others_posts'      => Permissions_Manager::EDIT_OTHER_ACTIVITIES,
+				'publish_posts'          => Permissions_Manager::CREATE_ACTIVITY,
+				'read_private_posts'     => Permissions_Manager::READ_OTHER_ACTIVITIES,
 				// Primitive capabilities used within map_meta_cap()
-				'read'                   => RoleManager::READ_ACTIVITY,
-				'delete_posts'           => RoleManager::DELETE_ACTIVITY,
-				'delete_private_posts'   => RoleManager::DELETE_ACTIVITY,
-				'delete_published_posts' => RoleManager::DELETE_ACTIVITY,
-				'delete_others_posts'    => RoleManager::DELETE_OTHER_ACTIVITIES,
-				'edit_private_posts'     => RoleManager::EDIT_ACTIVITY,
-				'edit_published_posts'   => RoleManager::EDIT_ACTIVITY,
-				'create_posts'           => RoleManager::EDIT_ACTIVITY,
+				'read'                   => Permissions_Manager::READ_ACTIVITY,
+				'delete_posts'           => Permissions_Manager::DELETE_ACTIVITY,
+				'delete_private_posts'   => Permissions_Manager::DELETE_ACTIVITY,
+				'delete_published_posts' => Permissions_Manager::DELETE_ACTIVITY,
+				'delete_others_posts'    => Permissions_Manager::DELETE_OTHER_ACTIVITIES,
+				'edit_private_posts'     => Permissions_Manager::EDIT_ACTIVITY,
+				'edit_published_posts'   => Permissions_Manager::EDIT_ACTIVITY,
+				'create_posts'           => Permissions_Manager::CREATE_ACTIVITY,
 			),
+			'map_meta_cap'          => true,
 			'show_in_rest'          => true,
 			'rest_base'             => self::CPT,
-			// 'rest_controller_class' => 'WP_REST_Posts_Controller'
 			'rest_controller_class' => 'InEmployeeReports\Activity_REST_Controller',
 		);
 		register_post_type( self::CPT, $args );
@@ -355,29 +354,36 @@ END_OF_HTML;
 	 * @param WP_Query $query Объект запроса
 	 */
 	public function setUsersFilter( $query ) {
-		if ( $query->get( 'post_type' ) == self::CPT ) {
-			// Текущий пользователь
-			$userId = get_current_user_id();
-
-			// Получаем список пользователей, отчеты которых нужно показать
-			$allowedUsers = RoleManager::getAllowedUsers( $userId );
-
-			// Для админов не фильтруем
-			if ( user_can( $userId, 'administrator' ) ) {
-				return;
-			}
-
-			// Возможный текущий фильтр
-			$currentAuthor = $query->get( 'author' );
-
-			// Если пользователь пытается подставить в фильтр ID, доступ к которому есть, разрешаем и ничего не делаем
-			if ( ! empty( $currentAuthor ) && in_array( $currentAuthor, $allowedUsers ) ) {
-				return;
-			}
-
-			// Ставим фильтр
-			$query->set( 'author', implode( ',', $allowedUsers ) );
+		// Проверяем, что это запрос к нашему CPT в админке
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
 		}
+
+		if ( self::CPT !== $query->get( 'post_type' ) ) {
+			return;
+		}
+
+		// Текущий пользователь
+		$userId = get_current_user_id();
+
+		// Для админов не фильтруем
+		if ( user_can( $userId, 'administrator' ) ) {
+			return;
+		}
+
+		// Получаем список пользователей, отчеты которых нужно показать
+		$allowedUsers = Permissions_Manager::getAllowedUsers( $userId );
+
+		// Возможный текущий фильтр
+		$currentAuthor = $query->get( 'author' );
+
+		// Если пользователь пытается подставить в фильтр ID, доступ к которому есть, разрешаем и ничего не делаем
+		if ( ! empty( $currentAuthor ) && in_array( (int) $currentAuthor, $allowedUsers, true ) ) {
+			return;
+		}
+
+		// Ставим фильтр
+		$query->set( 'author__in', $allowedUsers );
 	}
 
 	/**

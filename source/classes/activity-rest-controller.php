@@ -123,19 +123,14 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	 * @param WP_REST_Request $request Текущий запрос
 	 */
 	public function get_items_permissions_check( $request ) {
-		// Попытка авторизации через пароли приложений
-		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		}
-
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
+			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
 		// Проверка прав на доступ к отчетам
-		if ( ! RoleManager::user_can( get_current_user_id(), RoleManager::READ_ACTIVITY ) ) {
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к отчетам!', array( 'status' => '403' ) );
+		if ( ! current_user_can( Permissions_Manager::READ_ACTIVITY ) ) {
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к отчетам!', array( 'status' => 403 ) );
 		}
 
 		return true;
@@ -149,13 +144,13 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	public function get_items( $request ) {
 		// Параметры запроса
 		$employeeId = ( isset( $request['employeeId'] ) ) ? $request['employeeId'] : get_current_user_id();
-		$year       = ( isset( $request['year'] ) ) ? $request['year'] : date( 'Y' );
-		$month      = ( isset( $request['month'] ) ) ? $request['month'] : date( 'm' );
+		$year       = ( isset( $request['year'] ) ) ? $request['year'] : gmdate( 'Y' );
+		$month      = ( isset( $request['month'] ) ) ? $request['month'] : gmdate( 'm' );
 
 		// Данные для ответа
 		$data = array();
 
-		// Далем запрос на получение данных
+		// Делаем запрос на получение данных
 		$args = array(
 			'post_type'      => Report::CPT,
 			'year'           => $year,
@@ -166,9 +161,9 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		);
 
 		// Определяем пользователей, которых нужно показать
-		if ( $employeeId == '0' ) {
+		if ( '0' === $employeeId ) {
 			// Находим список пользователей, которых нужно показать
-			$args['author__in'] = RoleManager::getAllowedUsers( get_current_user_id() );
+			$args['author__in'] = Permissions_Manager::getAllowedUsers( get_current_user_id() );
 
 			// Если это админ, уберем фильтр
 			if ( current_user_can( 'administrator' ) ) {
@@ -230,19 +225,14 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	 * @param WP_REST_Request $request Текущий запрос
 	 */
 	public function get_item_permissions_check( $request ) {
-		// Попытка авторизации через пароли приложений
-		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		}
-
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
+			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
-		// Проверка прав на доступ к записи
-		if ( ! RoleManager::canDo( $request[ Report::FIELD_ID ], get_current_user_id(), RoleManager::READ_ACTIVITY, RoleManager::READ_OTHER_ACTIVITIES ) ) {
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к записи #' . $request['id'], array( 'status' => '403' ) );
+		// Проверка прав на доступ к записи используя стандартный механизм WordPress
+		if ( ! current_user_can( 'read_post', $request[ Report::FIELD_ID ] ) ) {
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к записи #' . $request['id'], array( 'status' => 403 ) );
 		}
 
 		return true;
@@ -291,19 +281,14 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	 * @param WP_REST_Request $request Текущий запрос
 	 */
 	public function create_item_permissions_check( $request ) {
-		// Попытка авторизации через пароли приложений
-		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		}
-
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
+			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
-		// Проверка прав на доступ к записи
-		if ( ! RoleManager::canDo( $request['id'], get_current_user_id(), RoleManager::CREATE_ACTIVITY, RoleManager::READ_OTHER_ACTIVITIES ) ) {
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на создание записи. create_item_permissions_check', array( 'status' => '403' ) );
+		// Проверка прав на создание записи
+		if ( ! current_user_can( Permissions_Manager::CREATE_ACTIVITY ) ) {
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на создание записи', array( 'status' => 403 ) );
 		}
 
 		return true;
@@ -323,7 +308,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		// Сотрудник
 		$employeeId = 0;
 		if ( isset( $request[ Report::FIELD_EMPLOYEE ] ) ) {
-			$searchUser = new WP_User_Query(
+			$searchUser = new \WP_User_Query(
 				array(
 					'search'        => $request[ Report::FIELD_EMPLOYEE ],
 					'search_fields' => array( 'user_login', 'user_nicename', 'display_name' ),
@@ -363,7 +348,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 
 		// Проверяем на ошибку
 		if ( is_wp_error( $postId ) ) {
-			return new WP_Error( 'rest_post_exists', 'Ошибка создания записи ' . $postId->get_error_code(), array( 'status' => 500 ) );
+			return new \WP_Error( 'rest_post_exists', 'Ошибка создания записи ' . $postId->get_error_code(), array( 'status' => 500 ) );
 		}
 
 		// Получаем текущую запись
@@ -379,19 +364,14 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	 * @param WP_REST_Request $request Текущий запрос
 	 */
 	public function update_item_permissions_check( $request ) {
-		// Попытка авторизации через пароли приложений
-		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		}
-
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
+			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
-		// Проверка прав на доступ к записи
-		if ( ! RoleManager::canDo( $request[ Report::FIELD_ID ], get_current_user_id(), RoleManager::EDIT_ACTIVITY, RoleManager::EDIT_OTHER_ACTIVITIES ) ) {
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на редактирование записи #' . $request[ Report::FIELD_ID ], array( 'status' => '403' ) );
+		// Проверка прав на редактирование записи используя стандартный механизм WordPress
+		if ( ! current_user_can( 'edit_post', $request[ Report::FIELD_ID ] ) ) {
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на редактирование записи #' . $request[ Report::FIELD_ID ], array( 'status' => 403 ) );
 		}
 
 		return true;
@@ -467,19 +447,14 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	 * @param WP_REST_Request $request Текущий запрос
 	 */
 	public function delete_item_permissions_check( $request ) {
-		// Попытка авторизации через пароли приложений
-		if ( ! is_user_logged_in() && isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-			RoleManager::authentificateApplication( $_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'] );
-		}
-
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => '401' ) );
+			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
-		// Проверка прав на доступ к записи
-		if ( ! RoleManager::canDo( $request[ Report::FIELD_ID ], get_current_user_id(), RoleManager::DELETE_ACTIVITY, RoleManager::DELETE_OTHER_ACTIVITIES ) ) {
-			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на удаление записи #' . $request[ Report::FIELD_ID ], array( 'status' => '403' ) );
+		// Проверка прав на удаление записи используя стандартный механизм WordPress
+		if ( ! current_user_can( 'delete_post', $request[ Report::FIELD_ID ] ) ) {
+			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на удаление записи #' . $request[ Report::FIELD_ID ], array( 'status' => 403 ) );
 		}
 
 		return true;
@@ -493,18 +468,18 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	public function delete_item( $request ) {
 		// Проверка ID
 		if ( empty( $request[ Report::FIELD_ID ] ) ) {
-			return new \WP_Error( 'rest_post_bad_id', 'Пустой ID записи', array( 'status' => '400' ) );
+			return new \WP_Error( 'rest_post_bad_id', 'Пустой ID записи', array( 'status' => 400 ) );
 		}
 
 		// Получаем запись
 		$post = get_post( $request[ Report::FIELD_ID ] );
 		if ( is_wp_error( $post ) ) {
-			return new WP_Error( 'rest_post_error', 'Ошибка доступа к записи #' . $request[ Report::FIELD_ID ] . ': ' . $post->get_error_code(), array( 'status' => 500 ) );
+			return new \WP_Error( 'rest_post_error', 'Ошибка доступа к записи #' . $request[ Report::FIELD_ID ] . ': ' . $post->get_error_code(), array( 'status' => 500 ) );
 		}
 
 		// Проверяем тип записи
-		if ( $post->post_type != Report::CPT ) {
-			return new WP_Error( 'rest_post_error', 'Ошибка типа записи #' . $request[ Report::FIELD_ID ], array( 'status' => 403 ) );
+		if ( Report::CPT !== $post->post_type ) {
+			return new \WP_Error( 'rest_post_error', 'Ошибка типа записи #' . $request[ Report::FIELD_ID ], array( 'status' => 403 ) );
 		}
 
 		// Удаляем запись

@@ -41,29 +41,29 @@ class Frontend extends Base {
 		}
 
 		// Регистрация CSS
-		wp_register_style( 'handsontable', $this->plugin->url . 'assets/dist/handsontable.full.min.css', array(), '14.4.0' );
-		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '2.1' );
+		wp_register_style( 'ag-grid-core', $this->plugin->url . 'assets/dist/ag-grid.min.css', array(), '31.0' );
+		wp_register_style( 'ag-grid-theme', $this->plugin->url . 'assets/dist/ag-theme-alpine.min.css', array( 'ag-grid-core' ), '31.0' );
+		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '3.0' );
 
 		// Загрузка CSS перенесена в метод getHTML, чтобы не грузить их на всех страницах
 
 		// Регистрация скриптов
-		wp_register_script( 'handsontable', $this->plugin->url . 'assets/dist/handsontable.full.min.js', array( 'jquery' ), '14.4.0', true );
-		wp_register_script( 'numbro-ru', $this->plugin->url . 'assets/dist/ru-RU.min.js', array( 'handsontable' ), '14.4.0', true );
-		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'handsontable', 'numbro-ru' ), '2.0', true );
+		wp_register_script( 'ag-grid', $this->plugin->url . 'assets/dist/ag-grid-community.min.js', array(), '31.0', true );
+		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'ag-grid' ), '3.0', true );
 
 		// Список пользователей для показа в списке
 		$employees = array();
 		if ( current_user_can( 'administrator' ) ) {
 			// Все роли плагина
-			$allRoles = array_keys( RoleManager::$roles );
+			$allRoles = array_keys( Permissions_Manager::$roles );
 			// Добавим админа
 			$allRoles[] = 'administrator';
-			// Для администратора выбираем всех сотрудгников и подрядчиков
+			// Для администратора выбираем всех сотрудников
 			$user_query   = new \WP_User_Query( array( 'role__in' => $allRoles ) );
 			$employees[0] = '_Все_';
 		} else {
-			// Для обычных пользователей берем данные из RoleManager
-			$user_query = new \WP_User_Query( array( 'include' => RoleManager::getAllowedUsers( get_current_user_id() ) ) );
+			// Для обычных пользователей берем данные из Permissions_Manager
+			$user_query = new \WP_User_Query( array( 'include' => Permissions_Manager::getAllowedUsers( get_current_user_id() ) ) );
 		}
 
 		if ( ! empty( $user_query->results ) ) {
@@ -116,16 +116,17 @@ class Frontend extends Base {
 		);
 
 		// Загрузка CSS
-		wp_enqueue_style( 'handsontable' );
+		wp_enqueue_style( 'ag-grid-core' );
+		wp_enqueue_style( 'ag-grid-theme' );
 		wp_enqueue_style( 'in-employee-reports-frontend' );
 
 		// Загрузка скриптов
 		wp_enqueue_script( 'in-employee-reports' );
 
-		$year = date( 'Y' );
+		$year = gmdate( 'Y' );
 		$html = <<<END_OF_HTML
 <section id="inerFrontend">
-	<div id="inerMessage">Сообщение</div>
+	<div id="inerMessage" style="display:none;">Сообщение</div>
 	<div id="inerFilter">
 		<label for="inerEmployee">Сотрудник</label>
 		<select id="inerEmployee"></select>
@@ -151,17 +152,18 @@ class Frontend extends Base {
 		<span class="separator">&nbsp;</span>
 		
 		<label for="inerYear">Год</label>
-		<input id="inerYear" type="number" min="2011" max="2025" step="1" value="{$year}" />
+		<input id="inerYear" type="number" min="2011" max="2030" step="1" value="{$year}" />
 		
-		<button id="inerReload">Показать</button>
+		<button id="inerReload" class="button">Показать</button>
+		<button id="inerExport" class="button">Экспорт в CSV</button>
 	</div>
 	<div id="inerTotals">
 		Итого: 
 		Количество: <span id="totalQuo">0</span> 
-		<span style="display:block-inline;width:20px">&nbsp;</span> 
+		<span style="display:inline-block;width:20px">&nbsp;</span> 
 		Сумма: <span id="totalSum">0</span> 
 	</div>
-	<div id="inerHot"></div>
+	<div id="inerGrid" class="ag-theme-alpine" style="height: 600px; width: 100%;"></div>
 </section>
 END_OF_HTML;
 

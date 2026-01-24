@@ -1,6 +1,6 @@
 <?php
 /**
- * Класс реализует загрузку и сохранение любых параметров
+ * Класс реализует загрузку и сохранение параметров плагина
  */
 namespace InEmployeeReports;
 
@@ -29,16 +29,10 @@ class Settings {
 	protected $_params;
 
 	/**
-	 * Массив хранения паролей приложений
-	 *
-	 * @var mixed
-	 */ protected $appPasswords;
-
-	/**
 	 * Конструктор
 	 * инициализирует параметры и загружает данные
 	 *
-	 * @param Plugin $plugin         Ссылка на основной объект плагина
+	 * @param Plugin $plugin Ссылка на основной объект плагина
 	 */
 	public function __construct( $plugin ) {
 		$this->_name  = get_class( $this );
@@ -49,9 +43,6 @@ class Settings {
 
 		// Если это работа в админке
 		if ( is_admin() ) {
-			// Стили для админки загружается классом report
-			// wp_enqueue_style( INER, $this->plugin->url . 'assets/css/admin.css' );
-
 			// Страница настроек
 			add_action( 'admin_menu', array( $this, 'addSettingsPage' ) );
 		}
@@ -60,173 +51,132 @@ class Settings {
 
 	/**
 	 * Загрузка параметров в массив из БД WordPress
-	 */ public function load() {
+	 */
+	public function load() {
 		$this->_params = get_option( $this->_name, array() );
-
-		// Загрузка паролей приложений пользователя
-		$metaFields         = get_user_meta( get_current_user_id(), RoleManager::APP_PASS_USER_META, true );
-		$this->appPasswords = ( ! empty( $metaFields ) && strlen( $metaFields ) > 3 ) ? unserialize( $metaFields ) : array();
-}
+	}
 
 	/**
 	 * Сохранение параметров в БД WordPress
-	 */ public function save() {
+	 */
+	public function save() {
 		update_option( $this->_name, $this->_params );
-
-		// Сохранение паролей приложения
-		update_user_meta( get_current_user_id(), RoleManager::APP_PASS_USER_META, serialize( $this->appPasswords ) );
-		delete_transient( RoleManager::APP_PASS_CACHE );
-}
+	}
 
 	/**
 	 * Чтение параметра
 	 *
-	 * @param string $param      Название параметра
-	 * @param mixed  $default    Значение параметра по умолчанию, если его нет или он пустой
-	 * @return mixed                Возвращает параметр
-	 */ public function get( $param, $default = false ) {
-	if ( ! isset( $this->_params[ $param ] ) ) {
-		return $default;
-	}
+	 * @param string $param   Название параметра
+	 * @param mixed  $default Значение параметра по умолчанию, если его нет или он пустой
+	 * @return mixed Возвращает параметр
+	 */
+	public function get( $param, $default = false ) {
+		if ( ! isset( $this->_params[ $param ] ) ) {
+			return $default;
+		}
 
-	if ( empty( $this->_params[ $param ] ) ) {
-		return $default;
-	}
+		if ( empty( $this->_params[ $param ] ) ) {
+			return $default;
+		}
 
 		return $this->_params[ $param ];
-}
+	}
 
 	/**
 	 * Сохранение параметра
 	 *
-	 * @param string $param      Название параметра
-	 * @param mixed  $value      Значение параметра
-	 */ public function set( $param, $value ) {
+	 * @param string $param Название параметра
+	 * @param mixed  $value Значение параметра
+	 */
+	public function set( $param, $value ) {
 		$this->_params[ $param ] = $value;
-}
+	}
 
 	/**
 	 * Чтение свойства
 	 *
-	 * @param string $param      Название параметра
-	 */ public function __get( $param ) {
+	 * @param string $param Название параметра
+	 */
+	public function __get( $param ) {
 		return $this->get( $param );
-}
+	}
+
 	/**
 	 * Запись свойства
 	 *
-	 * @param string $param      Название параметра
-	 */ public function __set( $param, $value ) {
+	 * @param string $param Название параметра
+	 * @param mixed  $value Значение параметра
+	 */
+	public function __set( $param, $value ) {
 		return $this->set( $param, $value );
-}
+	}
 
 
-	/** ==========================================================================================
-	 * Добавляет страницу настроект плагина в меню типа данных
-	 */ public function addSettingsPage() {
+	/**
+	 * Добавляет страницу настроек плагина в меню типа данных
+	 */
+	public function addSettingsPage() {
 		add_submenu_page(
 			'edit.php?post_type=' . Report::CPT,
 			'Настройки отчетов сотрудников',
 			'Настройки',
-			RoleManager::READ_ACTIVITY,
+			Permissions_Manager::READ_ACTIVITY,
 			INER,
 			array( $this, 'showSettingsPage' )
 		);
-}
+	}
 
 	/**
-	 * Выводит страницу настроект плагина
-	 */ public function showSettingsPage() {
+	 * Выводит страницу настроек плагина
+	 */
+	public function showSettingsPage() {
 		$nonceField  = INER;
 		$nonceAction = 'save-settings';
 		$nonceError  = false;
 
 		// Обработка формы
-	if ( $_SERVER['REQUEST_METHOD'] == 'POST' ) {
-		if ( ! isset( $_POST[ $nonceField ] ) || ! wp_verify_nonce( $_POST[ $nonceField ], $nonceAction ) ) {
-			$nonceError = true;
-		} else {
-			// Добавление пароля приложения
-			if ( $_POST['submit'] == 'Создать' ) {
-				$application = sanitize_text_field( $_POST['iner_app_name'] );
-				if ( ! empty( $application ) ) {
-					$key                        = RoleManager::generateKey();
-					$this->appPasswords[ $key ] = array(
-						RoleManager::APP_PASS_USER_ID => get_current_user_id(),
-						RoleManager::APP_PASS_NAME    => $application,
-						RoleManager::APP_PASS_SECRET  => RoleManager::generateKey( 'secret' ),
-					);
-				}
+		if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
+			if ( ! isset( $_POST[ $nonceField ] ) || ! wp_verify_nonce( $_POST[ $nonceField ], $nonceAction ) ) {
+				$nonceError = true;
+			} else {
+				// Здесь можно обрабатывать сохранение дополнительных настроек в будущем
+				$this->save();
 			}
-
-			// Удаление пароля приложения
-			if ( in_array( 'X', $_POST ) ) {
-				$postFlip = array_flip( $_POST );
-				$key      = $postFlip['X'];
-				unset( $this->appPasswords[ $key ] );
-			}
-
-			// Save all data
-			$this->save();
 		}
-	}
 
-	?>
-<h1>Отчеты сотрудников</h1>
-<p>Параметры плагина in-employee-reports</p>
-	<?php
-	if ( $nonceError ) {
-		echo '<p class="error">Ошибка поля nonce!</p>';}
-	?>
-
-<form id="iner-settings" action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
-	<?php wp_nonce_field( $nonceAction, $nonceField ); ?>
+		?>
+<div class="wrap">
+	<h1>Отчеты сотрудников</h1>
+	<p>Параметры плагина in-employee-reports</p>
 	
-	<fieldset>
-		<h2>Пароли приложений</h2>
-		<p>Эта функция позволяет создать пароли для подключения к REST API отчетов внешних приложений: Excel и др.<br>
-		   Для создания пароля введите произвольное имя приложения и нажмите кнопку [Создать].<br>
-		   Мы рекомендуем создавать для каждого приложения или сервиса свой пароль и не использовать один и тот же пароль дважды<br>
-		   В прилоджении в качестве логина указите значение ключа, в качестве пароля - секретного ключа<br>
-		   При необходимости удалите пароль, нажав на кнопку [х]</p>
-		   
-		<div class="iner-field">
-			<label for="iner_app_name">Приложение</label>
-			<div class="iner-input">
-				<input id="iner_app_name" name="iner_app_name" type="text" />
-			</div>	
-			<?php submit_button( 'Создать', 'secondary' ); ?>
+		<?php
+		if ( $nonceError ) {
+			echo '<div class="notice notice-error"><p>Ошибка поля nonce!</p></div>';
+		}
+		?>
+
+	<form id="iner-settings" action="<?php echo esc_url( $_SERVER['REQUEST_URI'] ); ?>" method="post">
+		<?php wp_nonce_field( $nonceAction, $nonceField ); ?>
+		
+		<div class="notice notice-info inline">
+			<h2>Пароли приложений</h2>
+			<p>Для интеграции с внешними приложениями (например, Excel, Google Sheets и другие) используйте <strong>встроенные пароли приложений WordPress</strong>.</p>
+			<p>Каждый пользователь может самостоятельно сгенерировать пароль приложения в своем профиле:</p>
+			<ol>
+				<li>Перейдите в <a href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>">Пользователи → Профиль</a></li>
+				<li>Прокрутите вниз до раздела "Пароли приложений"</li>
+				<li>Введите имя приложения и нажмите "Добавить новый пароль приложения"</li>
+				<li>Используйте сгенерированный пароль для аутентификации в REST API</li>
+			</ol>
+			<p><strong>Важно:</strong> Пароли приложений WordPress обеспечивают безопасный доступ к API без раскрытия основного пароля пользователя.</p>
 		</div>
-
-		<?php if ( count( $this->appPasswords ) ) : ?>
-			<table id="iner-application-passwords">
-				<thead>
-					<tr>
-						<td>Приложение</td>
-						<td>Ключ</td>
-						<td colspan="2">Секретный ключ</td>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $this->appPasswords as $key => $value ) : ?>
-						<tr>
-							<td><?php echo $value[ RoleManager::APP_PASS_NAME ]; ?></td>
-							<td><?php echo $key; ?></td>
-							<td><?php echo $value[ RoleManager::APP_PASS_SECRET ]; ?></td>
-							<td><?php submit_button( 'X', 'delete', $key ); ?></td>
-						</tr>
-					<?php endforeach ?>
-				</tbody>
-			</table>
-		<?php endif ?>
-	
-	</fieldset>
-	
-	<?php submit_button(); ?>
-</form>
-	<?php
-}
-
-
+		
+		<!-- Здесь можно добавить дополнительные настройки плагина в будущем -->
+		
+		<?php submit_button(); ?>
+	</form>
+</div>
+		<?php
+	}
 
 }
