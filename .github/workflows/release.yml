@@ -27,12 +27,9 @@ jobs:
           CHANGELOG=$(./scripts/extract-changelog.sh ${{ steps.version.outputs.version }} || echo "")
           if [ -z "$CHANGELOG" ]; then
             echo "Предупреждение: Changelog для версии ${{ steps.version.outputs.version }} не найден, используется заглушка" >&2
-            CHANGELOG="## [${{ steps.version.outputs.version }}] $(date +%Y-%m-%d)
-
-### Добавлено
-- Релиз версии ${{ steps.version.outputs.version }}
-
-См. [CHANGELOG.md](CHANGELOG.md) для подробной информации."
+            RELEASE_DATE=$(date +%Y-%m-%d)
+            VERSION="${{ steps.version.outputs.version }}"
+            CHANGELOG=$(printf "## [%s] %s\n\n### Добавлено\n- Релиз версии %s\n\nСм. [CHANGELOG.md](CHANGELOG.md) для подробной информации." "$VERSION" "$RELEASE_DATE" "$VERSION")
           fi
           # Экранируем многострочный текст для GitHub Actions
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
