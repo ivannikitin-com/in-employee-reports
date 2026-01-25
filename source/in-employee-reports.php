@@ -14,8 +14,37 @@ Namespace:	INER
 */
 defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
 
-/* Composer Autoloader */
-require plugin_dir_path( __FILE__ ) . '../vendor/autoload.php';
+/* Простой автозагрузчик классов плагина */
+spl_autoload_register( function ( $class ) {
+	// Загружаем только классы из нашего пространства имен
+	if ( strpos( $class, 'InEmployeeReports\\' ) !== 0 ) {
+		return;
+	}
+
+	// Убираем префикс пространства имен
+	$class_name = str_replace( 'InEmployeeReports\\', '', $class );
+
+	// Преобразуем имя класса в имя файла:
+	// 1. Разделяем по подчеркиваниям на части
+	// 2. Для каждой части преобразуем CamelCase в kebab-case
+	// 3. Объединяем через дефисы и приводим к нижнему регистру
+	$parts = explode( '_', $class_name );
+	$file_parts = array();
+	foreach ( $parts as $part ) {
+		// Преобразуем CamelCase в kebab-case
+		$kebab = strtolower( preg_replace( '/([a-z])([A-Z])/', '$1-$2', $part ) );
+		$file_parts[] = $kebab;
+	}
+	$file_name = implode( '-', $file_parts );
+
+	// Путь к файлу класса
+	$file_path = plugin_dir_path( __FILE__ ) . 'classes/' . $file_name . '.php';
+
+	// Загружаем файл, если он существует
+	if ( file_exists( $file_path ) ) {
+		require_once $file_path;
+	}
+} );
 
 /* Глобальные константы плагина */
 define( 'INER', 'in-employee-reports' );            // Text Domain
