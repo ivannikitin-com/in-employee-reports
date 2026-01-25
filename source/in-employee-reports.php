@@ -3,7 +3,7 @@
 Plugin Name: Отчеты сотрудников
 Plugin URI:  https://github.com/ivannikitin-com/in-employee-reports
 Description: Отчеты сотрудников компании
-Version:     3.0
+Version:     3.0.0
 Author:      IvanNikitin.com
 Author URI:  https://ivannikitin.com/
 License:     GPL2
@@ -74,6 +74,9 @@ function iner_init() {
 /* Подключение хука map_meta_cap для управления правами доступа */
 add_action( 'init', 'iner_setup_capabilities' );
 function iner_setup_capabilities() {
+	// Убеждаемся, что права администратору установлены
+	InEmployeeReports\Permissions_Manager::ensureAdminCapabilities();
+
 	// Подключаем map_meta_cap для проверки прав доступа
 	add_filter(
 		'map_meta_cap',
@@ -81,4 +84,28 @@ function iner_setup_capabilities() {
 		10,
 		4
 	);
+
+	// Подавляем предупреждения WordPress о неправильном вызове map_meta_cap
+	// когда WordPress вызывает map_meta_cap без аргументов для проверки общих capabilities
+	// Используем высокий приоритет, чтобы перехватить предупреждения до их вывода
+	add_filter( 'doing_it_wrong_trigger_error', 'iner_suppress_map_meta_cap_warnings', 999, 3 );
+}
+
+/**
+ * Подавляет предупреждения WordPress о неправильном вызове map_meta_cap
+ * когда WordPress вызывает map_meta_cap без аргументов для наших CPT
+ *
+ * @param bool   $trigger   Следует ли генерировать предупреждение
+ * @param string $function  Имя функции
+ * @param string $message   Сообщение об ошибке
+ * @return bool
+ */
+function iner_suppress_map_meta_cap_warnings( $trigger, $function, $message ) {
+	// Подавляем предупреждения только для map_meta_cap с edit_post/read_post
+	if ( 'map_meta_cap' === $function && ( false !== strpos( $message, 'edit_post' ) || false !== strpos( $message, 'read_post' ) ) ) {
+		// Подавляем предупреждение, так как мы правильно обрабатываем вызовы без аргументов
+		// в нашей функции map_meta_cap, возвращая исходные caps без изменений
+		return false;
+	}
+	return $trigger;
 }

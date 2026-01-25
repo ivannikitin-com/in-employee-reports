@@ -24,7 +24,16 @@ jobs:
         id: changelog
         run: |
           chmod +x scripts/extract-changelog.sh
-          CHANGELOG=$(./scripts/extract-changelog.sh ${{ steps.version.outputs.version }})
+          CHANGELOG=$(./scripts/extract-changelog.sh ${{ steps.version.outputs.version }} || echo "")
+          if [ -z "$CHANGELOG" ]; then
+            echo "Предупреждение: Changelog для версии ${{ steps.version.outputs.version }} не найден, используется заглушка" >&2
+            CHANGELOG="## [${{ steps.version.outputs.version }}] $(date +%Y-%m-%d)
+
+### Добавлено
+- Релиз версии ${{ steps.version.outputs.version }}
+
+См. [CHANGELOG.md](CHANGELOG.md) для подробной информации."
+          fi
           # Экранируем многострочный текст для GitHub Actions
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
@@ -33,12 +42,12 @@ jobs:
       - name: Zip source folder
         run: |
           cd source
-          zip -r ../ai-prompt-injection.zip . -x "*.git*" "*.DS_Store"
+          zip -r ../in-employee-reports.zip . -x "*.git*" "*.DS_Store"
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: ai-prompt-injection.zip
+          artifacts: in-employee-reports.zip
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Release ${{ github.ref_name }}
           body: ${{ steps.changelog.outputs.changelog }}
