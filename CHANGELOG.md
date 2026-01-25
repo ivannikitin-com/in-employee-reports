@@ -5,6 +5,12 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и этот проект придерживается [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [3.0.1] 2026-01-25
+
+### Исправлено
+
+- **Проблема с доступом для роли employee:** Исправлена ошибка "Нет прав" при загрузке данных в таблицу для пользователей с ролью `employee`. Теперь проверка прав доступа использует метод `Permissions_Manager::user_can()` вместо `current_user_can()` для корректной работы с кастомными capabilities.
+
 ## [3.0.0] 2026-01-24
 
 ### Изменено (Breaking Changes)
