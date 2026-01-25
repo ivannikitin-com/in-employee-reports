@@ -76,9 +76,15 @@ class Frontend extends Base {
 		// этот массив становится объектом, отсортированным по ключу. Сотрдировка должна быть на frontend'е
 		// asort( $employees );
 
-		// Спиок проектов для автозаполнения
-		$projectList = apply_filters( 'iner_projects', array( 'Оклад', 'Координация проектов' ), get_current_user_id() );
+		// Список проектов для автозаполнения - получаем из базы данных
+		$projectList = $this->getProjectsList();
+		// Применяем фильтр для возможности модификации списка
+		$projectList = apply_filters( 'iner_projects', $projectList, get_current_user_id() );
 		sort( $projectList );
+
+		// Получаем имя текущего пользователя
+		$current_user = wp_get_current_user();
+		$current_user_name = $current_user->display_name;
 
 		// Данные для скрипта
 		$innerREST = array(
@@ -86,6 +92,7 @@ class Frontend extends Base {
 			'root'          => esc_url_raw( rest_url() ),
 			'nonce'         => wp_create_nonce( 'wp_rest' ),
 			'currentUserId' => get_current_user_id(),
+			'currentUserName' => $current_user_name,
 			'employees'     => $employees,
 			'projects'      => $projectList,
 		);
@@ -157,6 +164,10 @@ class Frontend extends Base {
 		<button id="inerReload" class="button">Показать</button>
 		<button id="inerExport" class="button">Экспорт в CSV</button>
 	</div>
+	<div id="inerRowActions">
+		<button id="inerAddRow" class="button">Добавить строку</button>
+		<button id="inerDeleteRow" class="button">Удалить строку</button>
+	</div>
 	<div id="inerTotals">
 		Итого: 
 		Количество: <span id="totalQuo">0</span> 
@@ -168,5 +179,51 @@ class Frontend extends Base {
 END_OF_HTML;
 
 		return $html;
+	}
+
+	/**
+	 * Получает список всех уникальных проектов из базы данных
+	 *
+	 * @return array Массив уникальных названий проектов
+	 */
+	private function getProjectsList() {
+		global $wpdb;
+
+		// Получаем все уникальные значения мета-поля _activity_project
+		$meta_key = Report::META_PROJECT;
+		$post_type = Report::CPT;
+
+		// SQL запрос для получения уникальных значений мета-поля
+		$query = $wpdb->prepare(
+			"SELECT DISTINCT pm.meta_value 
+			FROM {$wpdb->postmeta} pm
+			INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+			WHERE pm.meta_key = %s
+			AND p.post_type = %s
+			AND p.post_status = 'publish'
+			AND pm.meta_value != ''
+			AND pm.meta_value IS NOT NULL
+			ORDER BY pm.meta_value ASC",
+			$meta_key,
+			$post_type
+		);
+
+		$results = $wpdb->get_col( $query );
+
+		// Очищаем и фильтруем результаты
+		$projects = array();
+		foreach ( $results as $project ) {
+			$project = trim( $project );
+			if ( ! empty( $project ) ) {
+				$projects[] = $project;
+			}
+		}
+
+		// Если проектов нет, возвращаем базовый список
+		if ( empty( $projects ) ) {
+			$projects = array( 'Оклад', 'Координация проектов' );
+		}
+
+		return $projects;
 	}
 }
