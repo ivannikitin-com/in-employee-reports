@@ -85,6 +85,17 @@ class Permissions_Manager {
 			}
 		}
 
+		// Устанавливаем права администратору
+		self::ensureAdminCapabilities();
+	}
+
+	/**
+	 * Устанавливает права администратору на все операции
+	 * Вызывается при активации и при инициализации плагина
+	 *
+	 * @static
+	 */
+	public static function ensureAdminCapabilities() {
 		// Администраторам даем права на все операции
 		$adminRole = get_role( 'administrator' );
 		if ( $adminRole ) {
@@ -146,6 +157,18 @@ class Permissions_Manager {
 	 * @static
 	 */
 	public static function map_meta_cap( $caps, $cap, $user_id, $args ) {
+		// WordPress требует, чтобы для edit_post и read_post всегда передавался конкретный пост
+		// Сначала проверяем аргументы - если они не переданы или пусты, возвращаем исходные caps БЕЗ изменений
+		// Это предотвращает предупреждения WordPress о неправильном вызове map_meta_cap
+		// Важно: проверяем аргументы ДО проверки типа capability, чтобы избежать предупреждений
+		if ( ! is_array( $args ) || empty( $args ) || ! isset( $args[0] ) || empty( $args[0] ) ) {
+			// Если это edit_post или read_post без аргументов, возвращаем исходные caps
+			// Это предотвратит предупреждения WordPress
+			if ( in_array( $cap, array( 'edit_post', 'read_post' ), true ) ) {
+				return $caps;
+			}
+		}
+
 		// Проверяем, касается ли это наших capability
 		if ( ! in_array(
 			$cap,
@@ -155,12 +178,13 @@ class Permissions_Manager {
 			return $caps;
 		}
 
-		// Получаем ID поста из аргументов
-		if ( empty( $args[0] ) ) {
+		// Получаем ID поста из аргументов и проверяем, что это валидный ID
+		$post_id = isset( $args[0] ) ? absint( $args[0] ) : 0;
+		if ( ! $post_id || $post_id <= 0 ) {
 			return $caps;
 		}
 
-		$post = get_post( $args[0] );
+		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return $caps;
 		}
@@ -168,6 +192,12 @@ class Permissions_Manager {
 		// Проверяем, что это наш CPT
 		if ( 'activity' !== $post->post_type ) {
 			return $caps;
+		}
+
+		// Администраторы имеют все права - возвращаем пустой массив (разрешено)
+		$user = new \WP_User( $user_id );
+		if ( in_array( 'administrator', $user->roles, true ) ) {
+			return array();
 		}
 
 		// Определяем является ли пользователь автором записи
@@ -204,6 +234,11 @@ class Permissions_Manager {
 
 		if ( 0 === count( $user->roles ) ) {
 			return false;
+		}
+
+		// Администраторы имеют все права
+		if ( in_array( 'administrator', $user->roles, true ) ) {
+			return true;
 		}
 
 		// Проверим каждую роль пользователя

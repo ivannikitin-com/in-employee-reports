@@ -16,7 +16,8 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 
 		// Регистрируем новое пространство и ресурс для REST
 		// URL: http://ivannikitin.ivan.wp-server.ru/wp-json/reports/v2/activity/
-		$this->namespace     = '/reports/v2';
+		// WordPress требует, чтобы namespace не начинался и не заканчивался слэшем
+		$this->namespace     = 'reports/v2';
 		$this->resource_name = 'activity';
 	}
 
@@ -126,6 +127,11 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
+		}
+
+		// Администраторы имеют все права
+		if ( current_user_can( 'administrator' ) ) {
+			return true;
 		}
 
 		// Проверка прав на доступ к отчетам
@@ -284,6 +290,11 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		// Проверка авторизации пользователя
 		if ( ! is_user_logged_in() ) {
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
+		}
+
+		// Администраторы имеют все права
+		if ( current_user_can( 'administrator' ) ) {
+			return true;
 		}
 
 		// Проверка прав на создание записи
