@@ -129,13 +129,15 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
+		$user_id = get_current_user_id();
+
 		// Администраторы имеют все права
 		if ( current_user_can( 'administrator' ) ) {
 			return true;
 		}
 
-		// Проверка прав на доступ к отчетам
-		if ( ! current_user_can( Permissions_Manager::READ_ACTIVITY ) ) {
+		// Проверка прав на доступ к отчетам используя Permissions_Manager
+		if ( ! Permissions_Manager::user_can( $user_id, Permissions_Manager::READ_ACTIVITY ) ) {
 			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на доступ к отчетам!', array( 'status' => 403 ) );
 		}
 
@@ -292,13 +294,15 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 			return new \WP_Error( 'rest_unauthorized', 'Вы не авторизованы!', array( 'status' => 401 ) );
 		}
 
+		$user_id = get_current_user_id();
+
 		// Администраторы имеют все права
 		if ( current_user_can( 'administrator' ) ) {
 			return true;
 		}
 
-		// Проверка прав на создание записи
-		if ( ! current_user_can( Permissions_Manager::CREATE_ACTIVITY ) ) {
+		// Проверка прав на создание записи используя Permissions_Manager
+		if ( ! Permissions_Manager::user_can( $user_id, Permissions_Manager::CREATE_ACTIVITY ) ) {
 			return new \WP_Error( 'rest_forbidden', 'У вас нет прав на создание записи', array( 'status' => 403 ) );
 		}
 
