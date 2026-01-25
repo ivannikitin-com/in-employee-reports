@@ -1,0 +1,55 @@
+name: Release Plugin in-employee-reports
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          chmod +x scripts/extract-changelog.sh
+          CHANGELOG=$(./scripts/extract-changelog.sh ${{ steps.version.outputs.version }} || echo "")
+          if [ -z "$CHANGELOG" ]; then
+            echo "Предупреждение: Changelog для версии ${{ steps.version.outputs.version }} не найден, используется заглушка" >&2
+            CHANGELOG="## [${{ steps.version.outputs.version }}] $(date +%Y-%m-%d)
+
+### Добавлено
+- Релиз версии ${{ steps.version.outputs.version }}
+
+См. [CHANGELOG.md](CHANGELOG.md) для подробной информации."
+          fi
+          # Экранируем многострочный текст для GitHub Actions
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Zip source folder
+        run: |
+          cd source
+          zip -r ../in-employee-reports.zip . -x "*.git*" "*.DS_Store"
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: in-employee-reports.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false

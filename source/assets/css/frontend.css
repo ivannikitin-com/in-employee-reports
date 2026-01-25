@@ -1,3 +1,11 @@
+/* Основной контейнер шорткода */
+#inerFrontend
+{
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+}
+
 /* Сообщения */
 #inerMessage
 {
@@ -17,10 +25,27 @@
 
 #inerFilter
 {
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
 	padding: 3em;
 	padding-bottom: 5px;
 	margin-bottom: 5px;
 	border-bottom: 1px solid #ccc;
+}
+
+#inerRowActions
+{
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+	padding: 0 3em;
+	margin-bottom: 10px;
+}
+
+#inerRowActions .button
+{
+	margin-right: 10px;
 }
 
 #inerFilter label
@@ -56,4 +81,22 @@
 #inerHot
 {
 	font-size: 10pt;
+}
+
+/* Контейнер таблицы */
+#inerGrid
+{
+	width: 100% !important;
+	max-width: none !important;
+	box-sizing: border-box;
+}
+
+/* Контейнер итогов */
+#inerTotals
+{
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+	padding: 0 3em;
+	margin-bottom: 10px;
 }
