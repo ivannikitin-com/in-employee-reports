@@ -3,7 +3,7 @@
 Plugin Name: Отчеты сотрудников
 Plugin URI:  https://github.com/ivannikitin-com/in-employee-reports
 Description: Отчеты сотрудников компании
-Version:     3.0.1
+Version:     3.0.2
 Author:      IvanNikitin.com
 Author URI:  https://ivannikitin.com/
 License:     GPL2

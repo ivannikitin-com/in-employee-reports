@@ -1,6 +1,6 @@
 {
   "name": "in-employee-reports",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "description": "WordPress plugin for employee reports.",
   "main": "source/assets/js/frontend.js",
   "scripts": {
