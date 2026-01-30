@@ -43,13 +43,13 @@ class Frontend extends Base {
 		// Регистрация CSS
 		wp_register_style( 'ag-grid-core', $this->plugin->url . 'assets/dist/ag-grid.min.css', array(), '31.0' );
 		wp_register_style( 'ag-grid-theme', $this->plugin->url . 'assets/dist/ag-theme-alpine.min.css', array( 'ag-grid-core' ), '31.0' );
-		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '3.0' );
+		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '3.0.2' );
 
 		// Загрузка CSS перенесена в метод getHTML, чтобы не грузить их на всех страницах
 
 		// Регистрация скриптов
 		wp_register_script( 'ag-grid', $this->plugin->url . 'assets/dist/ag-grid-community.min.js', array(), '31.0', true );
-		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'ag-grid' ), '3.0', true );
+		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'ag-grid' ), '3.0.2', true );
 
 		// Список пользователей для показа в списке
 		$employees = array();

@@ -157,20 +157,33 @@ jQuery(function($) {
             filter: 'agTextColumnFilter',
             sortable: true
         },
+        // Колонка даты: valueGetter даёт в редактор DD.MM.YYYY; valueSetter принимает DD.MM.YYYY и YYYY-MM-DD, хранит YYYY-MM-DD в data.date.
         {
             field: 'date',
             headerName: 'Дата',
             width: 120,
             editable: true,
             sortable: true,
+            valueGetter: function(params) {
+                if (!params.data || !params.data.date) return '';
+                return formatDateDDMMYYYY(params.data.date);
+            },
             valueFormatter: function(params) {
-                if (!params.value) {
-                    return '';
-                }
+                if (!params.value) return '';
+                // valueGetter уже вернул DD.MM.YYYY — не форматировать повторно
+                if (typeof params.value === 'string' && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(params.value)) return params.value;
                 return formatDateDDMMYYYY(params.value);
             },
             valueSetter: function(params) {
-                const parsedDate = parseDateDDMMYYYY(params.newValue);
+                const raw = params.newValue;
+                if (raw === undefined || raw === null || String(raw).trim() === '') return false;
+                const str = String(raw).trim();
+                let parsedDate = parseDateDDMMYYYY(str);
+                // Редактор мог отдать YYYY-MM-DD — тоже принимаем
+                if (!parsedDate && str.indexOf('-') === 4) {
+                    const d = new Date(str);
+                    if (!isNaN(d.getTime())) parsedDate = d;
+                }
                 if (parsedDate) {
                     params.data.date = formatDateYYYYMMDD(parsedDate);
                     return true;
@@ -315,8 +328,6 @@ jQuery(function($) {
                 }
             })
             .done(function(response) {
-                innerREST.debug && console.log('loadData response:', response);
-
                 // Преобразование данных
                 const processedData = response.map(function(item) {
                     // response возвращает объект с полем data
@@ -621,8 +632,6 @@ jQuery(function($) {
      * Обработчик ошибок AJAX
      */
     function handleAjaxError(jqXHR, textStatus, errorThrown) {
-        innerREST.debug && console.log('AJAX error:', jqXHR, textStatus, errorThrown);
-
         let errorMsg = 'Запрос не удался';
         if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
             errorMsg = jqXHR.responseJSON.message;
