@@ -34,7 +34,7 @@
 	border-bottom: 1px solid #ccc;
 }
 
-#inerRowActions
+#inerRowActions, #inerAddActions
 {
 	width: 100%;
 	max-width: none;
@@ -43,7 +43,7 @@
 	margin-bottom: 10px;
 }
 
-#inerRowActions .button
+#inerRowActions .button, #inerAddActions .button
 {
 	margin-right: 10px;
 }
@@ -91,6 +91,43 @@
 	box-sizing: border-box;
 }
 
+/* Модальное окно добавления записи */
+#inerAddDialog .iner-form-row
+{
+	margin-bottom: 12px;
+}
+
+#inerAddDialog .iner-form-row label
+{
+	display: block;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+#inerAddDialog .iner-form-row input[type="text"],
+#inerAddDialog .iner-form-row input[type="number"],
+#inerAddDialog .iner-form-row textarea
+{
+	width: 100%;
+	box-sizing: border-box;
+}
+
+#inerAddDialog .iner-form-row-inline
+{
+	display: flex;
+	gap: 16px;
+}
+
+#inerAddDialog .iner-form-row-inline > div
+{
+	flex: 1;
+}
+
+#inerAddDialog input[readonly]
+{
+	background-color: #f0f0f1;
+}
+
 /* Контейнер итогов */
 #inerTotals
 {
@@ -99,4 +136,158 @@
 	box-sizing: border-box;
 	padding: 0 3em;
 	margin-bottom: 10px;
+}
+
+/* Календарь jQuery UI (datepicker) — стили темы не подключены на фронтенде */
+.ui-datepicker
+{
+	width: 17em;
+	padding: 4px;
+	background-color: #fff;
+	border: 1px solid #c5c5c5;
+	border-radius: 4px;
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+	z-index: 100200 !important;
+}
+
+.ui-datepicker .ui-datepicker-header
+{
+	position: relative;
+	padding: 4px 0;
+	background-color: #f0f0f1;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+.ui-datepicker .ui-datepicker-title
+{
+	margin: 0 2.5em;
+	text-align: center;
+	line-height: 1.8em;
+	font-weight: 600;
+}
+
+.ui-datepicker .ui-datepicker-title select
+{
+	margin: 0 1px;
+	font-size: 1em;
+	height: auto;
+}
+
+.ui-datepicker .ui-datepicker-prev,
+.ui-datepicker .ui-datepicker-next
+{
+	position: absolute;
+	top: 4px;
+	width: 2em;
+	height: 1.8em;
+	cursor: pointer;
+}
+
+.ui-datepicker .ui-datepicker-prev
+{
+	left: 2px;
+}
+
+.ui-datepicker .ui-datepicker-next
+{
+	right: 2px;
+}
+
+.ui-datepicker .ui-datepicker-prev span,
+.ui-datepicker .ui-datepicker-next span
+{
+	display: block;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 0;
+	height: 0;
+	margin: 0;
+	text-indent: 0;
+	overflow: visible;
+	background: none;
+	border-style: solid;
+	transform: translate(-50%, -50%);
+}
+
+.ui-datepicker .ui-datepicker-prev span
+{
+	border-width: 5px 6px 5px 0;
+	border-color: transparent #333 transparent transparent;
+}
+
+.ui-datepicker .ui-datepicker-next span
+{
+	border-width: 5px 0 5px 6px;
+	border-color: transparent transparent transparent #333;
+}
+
+.ui-datepicker table
+{
+	width: 100%;
+	margin: 0 0 4px;
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+
+.ui-datepicker th
+{
+	padding: 6px 2px;
+	text-align: center;
+	font-weight: 600;
+	border: 0;
+}
+
+.ui-datepicker td
+{
+	padding: 1px;
+	border: 0;
+}
+
+.ui-datepicker td span,
+.ui-datepicker td a
+{
+	display: block;
+	padding: 4px;
+	text-align: center;
+	text-decoration: none;
+	border-radius: 3px;
+	color: #333;
+}
+
+.ui-datepicker td a.ui-state-default
+{
+	background-color: #f6f7f7;
+}
+
+.ui-datepicker td a.ui-state-hover,
+.ui-datepicker td a:hover
+{
+	background-color: #2271b1;
+	color: #fff;
+}
+
+.ui-datepicker td a.ui-state-active
+{
+	background-color: #2271b1;
+	color: #fff;
+	font-weight: 600;
+}
+
+.ui-datepicker .ui-datepicker-today a
+{
+	border: 1px solid #2271b1;
+}
+
+.ui-datepicker .ui-datepicker-unselectable span
+{
+	color: #a7aaad;
+	background-color: transparent;
+}
+
+.ui-datepicker .ui-datepicker-buttonpane
+{
+	margin: 4px 0 0;
+	padding: 4px 0 0;
+	border-top: 1px solid #e0e0e0;
 }

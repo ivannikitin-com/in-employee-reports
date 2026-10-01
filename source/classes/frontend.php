@@ -40,16 +40,22 @@ class Frontend extends Base {
 			return;
 		}
 
+		// Версия собственных ассетов по времени изменения - для сброса кэша браузера
+		$frontend_css_ver = filemtime( $this->plugin->path . 'assets/css/frontend.css' );
+		$frontend_js_ver  = filemtime( $this->plugin->path . 'assets/js/frontend.js' );
+		$frontend_css_ver = $frontend_css_ver ? $frontend_css_ver : '3.1.0';
+		$frontend_js_ver  = $frontend_js_ver ? $frontend_js_ver : '3.1.0';
+
 		// Регистрация CSS
 		wp_register_style( 'ag-grid-core', $this->plugin->url . 'assets/dist/ag-grid.min.css', array(), '31.0' );
 		wp_register_style( 'ag-grid-theme', $this->plugin->url . 'assets/dist/ag-theme-alpine.min.css', array( 'ag-grid-core' ), '31.0' );
-		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), '3.0.2' );
+		wp_register_style( 'in-employee-reports-frontend', $this->plugin->url . 'assets/css/frontend.css', array( 'wp-jquery-ui-dialog' ), $frontend_css_ver );
 
 		// Загрузка CSS перенесена в метод getHTML, чтобы не грузить их на всех страницах
 
 		// Регистрация скриптов
 		wp_register_script( 'ag-grid', $this->plugin->url . 'assets/dist/ag-grid-community.min.js', array(), '31.0', true );
-		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'ag-grid' ), '3.0.2', true );
+		wp_register_script( 'in-employee-reports', $this->plugin->url . 'assets/js/frontend.js', array( 'jquery', 'jquery-ui-dialog', 'jquery-ui-datepicker', 'ag-grid' ), $frontend_js_ver, true );
 
 		// Список пользователей для показа в списке
 		$employees = array();
@@ -86,13 +92,19 @@ class Frontend extends Base {
 		$current_user = wp_get_current_user();
 		$current_user_name = $current_user->display_name;
 
+		// Может ли текущий пользователь создавать записи для других сотрудников
+		$current_user_id      = get_current_user_id();
+		$can_create_for_other = current_user_can( 'administrator' )
+			|| Permissions_Manager::user_can( $current_user_id, Permissions_Manager::EDIT_OTHER_ACTIVITIES );
+
 		// Данные для скрипта
 		$innerREST = array(
 			'debug'         => WP_DEBUG,
 			'root'          => esc_url_raw( rest_url() ),
 			'nonce'         => wp_create_nonce( 'wp_rest' ),
-			'currentUserId' => get_current_user_id(),
+			'currentUserId' => $current_user_id,
 			'currentUserName' => $current_user_name,
+			'canCreateForOther' => $can_create_for_other,
 			'employees'     => $employees,
 			'projects'      => $projectList,
 		);
@@ -164,17 +176,51 @@ class Frontend extends Base {
 		<button id="inerReload" class="button">Показать</button>
 		<button id="inerExport" class="button">Экспорт в CSV</button>
 	</div>
-	<div id="inerRowActions">
-		<button id="inerAddRow" class="button">Добавить строку</button>
-		<button id="inerDeleteRow" class="button">Удалить строку</button>
-	</div>
 	<div id="inerTotals">
 		Итого: 
 		Количество: <span id="totalQuo">0</span> 
 		<span style="display:inline-block;width:20px">&nbsp;</span> 
 		Сумма: <span id="totalSum">0</span> 
 	</div>
-	<div id="inerGrid" class="ag-theme-alpine" style="height: 600px; width: 100%;"></div>
+	<div id="inerAddActions">
+		<button id="inerAddRecord" class="button button-primary">Добавить запись</button>
+	</div>
+	<div id="inerGrid" class="ag-theme-alpine" style="width: 100%;"></div>
+	<div id="inerRowActions">
+		<button id="inerAddRow" class="button">Добавить строку</button>
+		<button id="inerDeleteRow" class="button">Удалить строку</button>
+	</div>
+	<div id="inerAddDialog" title="Добавить запись" style="display:none;">
+		<form id="inerAddForm">
+			<div class="iner-form-row">
+				<label for="inerAddEmployee">Сотрудник</label>
+				<input type="text" id="inerAddEmployee" readonly="readonly" />
+			</div>
+			<div class="iner-form-row">
+				<label for="inerAddDate">Дата</label>
+				<input type="text" id="inerAddDate" autocomplete="off" />
+			</div>
+			<div class="iner-form-row">
+				<label for="inerAddProject">Проект</label>
+				<input type="text" id="inerAddProject" list="inerAddProjectList" autocomplete="off" />
+				<datalist id="inerAddProjectList"></datalist>
+			</div>
+			<div class="iner-form-row iner-form-row-inline">
+				<div>
+					<label for="inerAddQuo">Число</label>
+					<input type="number" id="inerAddQuo" step="0.01" value="0" />
+				</div>
+				<div>
+					<label for="inerAddRate">Ставка</label>
+					<input type="number" id="inerAddRate" step="0.01" value="0" />
+				</div>
+			</div>
+			<div class="iner-form-row">
+				<label for="inerAddComment">Комментарий</label>
+				<textarea id="inerAddComment" rows="4"></textarea>
+			</div>
+		</form>
+	</div>
 </section>
 END_OF_HTML;
 

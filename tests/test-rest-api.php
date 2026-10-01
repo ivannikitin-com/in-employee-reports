@@ -72,6 +72,78 @@ class Test_REST_API extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Тест что комментарий сохраняется без переносов строк
+	 */
+	public function test_create_normalizes_comment_newlines() {
+		wp_set_current_user( $this->employee );
+
+		$request = new WP_REST_Request( 'POST', '/reports/v2/activity' );
+		$request->set_body_params(
+			array(
+				'date'    => '01.01.2026',
+				'project' => 'Test Project',
+				'quo'     => 1,
+				'rate'    => 1,
+				'comment' => "Первая строка\r\nВторая   строка\tТретья",
+			)
+		);
+
+		$response = $this->server->dispatch( $request );
+		$this->assertEquals( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertEquals( 'Первая строка Вторая строка Третья', $data['comment'], 'Переносы строк и лишние пробелы должны заменяться пробелами' );
+	}
+
+	/**
+	 * Тест что запись с некорректной датой не создается
+	 */
+	public function test_create_rejects_invalid_date() {
+		wp_set_current_user( $this->employee );
+
+		$request = new WP_REST_Request( 'POST', '/reports/v2/activity' );
+		$request->set_body_params(
+			array(
+				'date'    => '45.13.2026',
+				'project' => 'Test Project',
+			)
+		);
+
+		$response = $this->server->dispatch( $request );
+
+		$this->assertEquals( 400, $response->get_status(), 'Некорректная дата должна отклоняться' );
+	}
+
+	/**
+	 * Тест что сотрудник не может создать запись от имени другого сотрудника
+	 */
+	public function test_employee_cannot_create_for_other_user() {
+		$other = $this->factory->user->create(
+			array(
+				'role'         => 'employee',
+				'display_name' => 'Other Employee',
+			)
+		);
+
+		wp_set_current_user( $this->employee );
+
+		$request = new WP_REST_Request( 'POST', '/reports/v2/activity' );
+		$request->set_body_params(
+			array(
+				'employee' => 'Other Employee',
+				'date'     => '01.01.2026',
+				'project'  => 'Test Project',
+			)
+		);
+
+		$response = $this->server->dispatch( $request );
+		$this->assertEquals( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertEquals( $this->employee, get_post_field( 'post_author', $data['id'] ), 'Сотрудник может создавать записи только для себя' );
+	}
+
+	/**
 	 * Тест что сотрудник НЕ может редактировать чужую запись
 	 */
 	public function test_employee_cannot_edit_others_activity() {

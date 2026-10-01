@@ -134,11 +134,40 @@ jQuery(function($) {
         txtYear: $('#inerYear'),
         btnReload: $('#inerReload'),
         btnExport: $('#inerExport'),
+        btnAddRecord: $('#inerAddRecord'),
         btnAddRow: $('#inerAddRow'),
         btnDeleteRow: $('#inerDeleteRow'),
         message: $('#inerMessage'),
+        addDialog: $('#inerAddDialog'),
+        addForm: $('#inerAddForm'),
+        addEmployee: $('#inerAddEmployee'),
+        addDate: $('#inerAddDate'),
+        addProject: $('#inerAddProject'),
+        addProjectList: $('#inerAddProjectList'),
+        addQuo: $('#inerAddQuo'),
+        addRate: $('#inerAddRate'),
+        addComment: $('#inerAddComment'),
         gridContainer: document.getElementById('inerGrid')
     };
+
+    // Счетчик временных идентификаторов новых строк (до сохранения на сервере)
+    let tempRowCounter = 0;
+
+    /**
+     * Возвращает уникальный временный идентификатор новой строки
+     */
+    function nextTempId() {
+        tempRowCounter += 1;
+        return 'new-' + tempRowCounter + '-' + Date.now();
+    }
+
+    /**
+     * Убирает переносы строк из текста, заменяя их пробелами
+     */
+    function normalizeComment(value) {
+        if (value === undefined || value === null) return '';
+        return String(value).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
 
     // === Конфигурация AG Grid ===
     const columnDefs = [{
@@ -260,10 +289,17 @@ jQuery(function($) {
         },
         rowSelection: 'multiple',
         animateRows: true,
+        domLayout: 'autoHeight',
         onCellValueChanged: handleCellChanged,
         onRowDataUpdated: updateTotals,
         getRowId: function(params) {
-            return params.data.id ? params.data.id.toString() : 'new-' + Date.now();
+            if (params.data.id) {
+                return params.data.id.toString();
+            }
+            if (!params.data.__tempId) {
+                params.data.__tempId = nextTempId();
+            }
+            return params.data.__tempId;
         },
         localeText: {
             // Русская локализация для AG Grid
@@ -284,18 +320,36 @@ jQuery(function($) {
         const rowData = event.data;
 
         if (!rowData.id) {
+            // Если создание этой строки уже выполняется, не создаем дубль.
+            // Изменения, сделанные во время запроса, будут отправлены после его завершения.
+            if (rowData.__creating) {
+                rowData.__dirtyDuringCreate = true;
+                return;
+            }
+
+            rowData.__creating = true;
+
             // Создание новой записи
             showMessage('Добавление новой записи');
             createReport(rowData)
                 .done(function(response) {
                     rowData.id = response.id;
                     rowData.employee = response.employee;
+                    rowData.__creating = false;
                     // Обновляем ячейки в строке
                     gridApi.refreshCells({ rowNodes: [event.node], force: true });
+                    // Если во время сохранения данные менялись - сохраняем актуальную версию
+                    if (rowData.__dirtyDuringCreate) {
+                        rowData.__dirtyDuringCreate = false;
+                        updateReport(rowData).fail(handleAjaxError);
+                    }
                     showMessage('Запись #' + response.id + ' добавлена');
                     setTimeout(hideMessage, 2000);
                 })
-                .fail(handleAjaxError);
+                .fail(function() {
+                    rowData.__creating = false;
+                    handleAjaxError.apply(null, arguments);
+                });
         } else {
             // Обновление существующей записи
             showMessage('Обновление записи');
@@ -357,6 +411,7 @@ jQuery(function($) {
         const today = getTodayYYYYMMDD();
         const newRow = {
             id: null,
+            __tempId: nextTempId(),
             employee: innerREST.currentUserName || '',
             date: today,
             project: '',
@@ -365,30 +420,19 @@ jQuery(function($) {
             comment: ''
         };
 
-        // Получаем текущие данные
-        const currentData = [];
-        gridApi.forEachNode(function(node) {
-            currentData.push(node.data);
-        });
-
-        // Добавляем новую строку
-        currentData.push(newRow);
-
-        // Обновляем таблицу
-        gridApi.setGridOption('rowData', currentData);
+        // Добавляем новую строку в конец
+        gridApi.applyTransaction({ add: [newRow] });
 
         // Фокусируемся на новой строке и первой редактируемой ячейке (дата)
         setTimeout(function() {
-            const rowCount = gridApi.getDisplayedRowCount();
-            if (rowCount > 0) {
-                const lastRow = gridApi.getDisplayedRowAtIndex(rowCount - 1);
-                if (lastRow) {
-                    gridApi.setFocusedCell(lastRow.rowIndex, 'date');
-                    gridApi.startEditingCell({
-                        rowIndex: lastRow.rowIndex,
-                        colKey: 'date'
-                    });
-                }
+            const rowNode = gridApi.getRowNode(newRow.__tempId);
+            if (rowNode) {
+                gridApi.ensureIndexVisible(rowNode.rowIndex, 'bottom');
+                gridApi.setFocusedCell(rowNode.rowIndex, 'date');
+                gridApi.startEditingCell({
+                    rowIndex: rowNode.rowIndex,
+                    colKey: 'date'
+                });
             }
         }, 100);
     }
@@ -527,6 +571,106 @@ jQuery(function($) {
     }
 
     /**
+     * Инициализация модального окна добавления записи
+     */
+    function initAddDialog() {
+        // Заполняем список проектов для автодополнения
+        elements.addProjectList.empty();
+        (innerREST.projects || []).forEach(function(project) {
+            $('<option></option>').attr('value', project).appendTo(elements.addProjectList);
+        });
+
+        // Выбор даты
+        if ($.fn.datepicker) {
+            elements.addDate.datepicker({
+                dateFormat: 'dd.mm.yy',
+                changeMonth: true,
+                changeYear: true
+            });
+        }
+
+        // Диалоговое окно
+        elements.addDialog.dialog({
+            autoOpen: false,
+            modal: true,
+            width: 500,
+            resizable: false,
+            buttons: {
+                'Сохранить': saveNewRecord,
+                'Отмена': function() {
+                    $(this).dialog('close');
+                }
+            }
+        });
+    }
+
+    /**
+     * Открытие модального окна добавления записи
+     */
+    function openAddDialog() {
+        // Сотрудник: для руководителей - выбранный в фильтре, иначе текущий пользователь
+        let employeeName = innerREST.currentUserName || '';
+        const selectedEmployeeId = elements.selEmployee.val();
+        if (innerREST.canCreateForOther && selectedEmployeeId && selectedEmployeeId !== '0') {
+            employeeName = innerREST.employees[selectedEmployeeId] || employeeName;
+        }
+
+        elements.addEmployee.val(employeeName);
+        elements.addDate.val(formatDateDDMMYYYY(new Date()));
+        elements.addProject.val('');
+        elements.addQuo.val('0');
+        elements.addRate.val('0');
+        elements.addComment.val('');
+
+        elements.addDialog.dialog('open');
+    }
+
+    // Признак того, что запись из модального окна уже сохраняется
+    let addRecordSaving = false;
+
+    /**
+     * Сохранение новой записи из модального окна
+     */
+    function saveNewRecord() {
+        if (addRecordSaving) {
+            return;
+        }
+
+        const date = String(elements.addDate.val() || '').trim();
+
+        if (!isValidDateDDMMYYYY(date)) {
+            alert('Введите корректную дату в формате ДД.ММ.ГГГГ');
+            return;
+        }
+
+        const data = {
+            employee: elements.addEmployee.val(),
+            date: date,
+            project: String(elements.addProject.val() || '').trim(),
+            quo: parseFloat(elements.addQuo.val()) || 0,
+            rate: parseFloat(elements.addRate.val()) || 0,
+            comment: normalizeComment(elements.addComment.val())
+        };
+
+        addRecordSaving = true;
+        showMessage('Добавление новой записи');
+        createReport(data)
+            .done(function(response) {
+                elements.addDialog.dialog('close');
+                showMessage('Запись #' + response.id + ' добавлена');
+                setTimeout(hideMessage, 2000);
+                loadData();
+            })
+            .fail(handleAjaxError)
+            .always(function() {
+                addRecordSaving = false;
+                if (elements.addDialog.dialog('isOpen')) {
+                    hideMessage();
+                }
+            });
+    }
+
+    /**
      * Экспорт в CSV
      */
     function exportToCsv() {
@@ -569,11 +713,12 @@ jQuery(function($) {
                 xhr.setRequestHeader('X-WP-Nonce', innerREST.nonce);
             },
             data: {
+                employee: data.employee || '',
                 date: dateValue,
                 project: data.project || '',
                 quo: data.quo || 0,
                 rate: data.rate || 0,
-                comment: data.comment || ''
+                comment: normalizeComment(data.comment)
             }
         });
     }
@@ -607,7 +752,7 @@ jQuery(function($) {
                 project: data.project || '',
                 quo: data.quo || 0,
                 rate: data.rate || 0,
-                comment: data.comment || ''
+                comment: normalizeComment(data.comment)
             }
         });
     }
@@ -688,11 +833,13 @@ jQuery(function($) {
 
     // === Инициализация ===
     initializeFilters();
+    initAddDialog();
     loadData();
 
     // Обработчики событий UI
     elements.btnReload.on('click', loadData);
     elements.btnExport.on('click', exportToCsv);
+    elements.btnAddRecord.on('click', openAddDialog);
     elements.btnAddRow.on('click', addNewRow);
     elements.btnDeleteRow.on('click', deleteSelectedRows);
 });

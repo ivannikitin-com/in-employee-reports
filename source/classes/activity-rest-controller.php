@@ -284,6 +284,43 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	}
 
 	/**
+	 * Разбирает дату из запроса в формате ДД.ММ.ГГГГ
+	 *
+	 * @param string $value Значение поля даты
+	 * @return \DateTime|null|false Объект даты, null для пустого значения или false при ошибке
+	 */
+	private function parse_date_field( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return null;
+		}
+
+		// Префикс "!" обнуляет неуказанные поля времени
+		$date = date_create_from_format( '!d.m.Y', $value );
+		if ( false === $date ) {
+			return false;
+		}
+
+		$errors = date_get_last_errors();
+		if ( is_array( $errors ) && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) {
+			return false;
+		}
+
+		return $date;
+	}
+
+	/**
+	 * Нормализует комментарий: убирает переносы строк и лишние пробелы
+	 *
+	 * @param string $value Исходный комментарий
+	 * @return string
+	 */
+	private function normalize_comment( $value ) {
+		$result = preg_replace( '/\s+/u', ' ', (string) $value );
+		return trim( (string) $result );
+	}
+
+	/**
 	 * Проверка прав на создание новой записи
 	 *
 	 * @param WP_REST_Request $request Текущий запрос
@@ -319,38 +356,58 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 			return new WP_Error( 'rest_post_exists', 'Нельзя создать запись с ID #' . $request[ Report::FIELD_ID ], array( 'status' => 400 ) );
 		}
 
+		// Текущий пользователь
+		$currentUserId = get_current_user_id();
+
 		// Читаем исходные данные
 		// Сотрудник
-		$employeeId = 0;
-		if ( isset( $request[ Report::FIELD_EMPLOYEE ] ) ) {
-			$searchUser = new \WP_User_Query(
+		$employeeId = $currentUserId;
+		if ( isset( $request[ Report::FIELD_EMPLOYEE ] ) && '' !== trim( (string) $request[ Report::FIELD_EMPLOYEE ] ) ) {
+			$employeeName = trim( (string) $request[ Report::FIELD_EMPLOYEE ] );
+			$searchUser   = new \WP_User_Query(
 				array(
-					'search'        => $request[ Report::FIELD_EMPLOYEE ],
-					'search_fields' => array( 'user_login', 'user_nicename', 'display_name' ),
+					'search'         => $employeeName,
+					'search_columns' => array( 'user_login', 'user_nicename', 'display_name' ),
 				)
 			);
 			if ( ! empty( $searchUser->results ) ) {
-				$employeeId = $searchUser->results[0]->ID;
+				$employeeId = (int) $searchUser->results[0]->ID;
+				// Предпочитаем точное совпадение отображаемого имени
+				foreach ( $searchUser->results as $foundUser ) {
+					if ( $foundUser->display_name === $employeeName ) {
+						$employeeId = (int) $foundUser->ID;
+						break;
+					}
+				}
 			}
-		} else {
-			$employeeId = get_current_user_id();
 		}
 
-		// Дата в UTC
-		$date = isset( $request[ Report::FIELD_DATE ] ) ? date_create_from_format( 'd.m.Y', $request[ Report::FIELD_DATE ] ) : date_create();
-		$date = date_format( $date, 'Y-m-d H:i:s' );
+		// Создавать записи для других сотрудников могут только администраторы и руководители
+		if ( $employeeId !== $currentUserId
+			&& ! current_user_can( 'administrator' )
+			&& ! Permissions_Manager::user_can( $currentUserId, Permissions_Manager::EDIT_OTHER_ACTIVITIES )
+		) {
+			$employeeId = $currentUserId;
+		}
 
-		$project = isset( $request[ Report::FIELD_PROJECT ] ) ? $request[ Report::FIELD_PROJECT ] : '';
-		$quo     = (float) isset( $request[ Report::FIELD_QUO ] ) ? $request[ Report::FIELD_QUO ] : 0;
-		$rate    = (float) isset( $request[ Report::FIELD_RATE ] ) ? $request[ Report::FIELD_RATE ] : 0;
-		$comment = isset( $request[ Report::FIELD_COMMENT ] ) ? $request[ Report::FIELD_COMMENT ] : '';
+		// Дата
+		$dateObject = $this->parse_date_field( isset( $request[ Report::FIELD_DATE ] ) ? $request[ Report::FIELD_DATE ] : '' );
+		if ( false === $dateObject ) {
+			return new \WP_Error( 'rest_invalid_date', 'Некорректная дата. Используйте формат ДД.ММ.ГГГГ.', array( 'status' => 400 ) );
+		}
+		$date = ( null === $dateObject ) ? current_time( 'mysql' ) : date_format( $dateObject, 'Y-m-d H:i:s' );
+
+		$project = isset( $request[ Report::FIELD_PROJECT ] ) ? sanitize_text_field( $request[ Report::FIELD_PROJECT ] ) : '';
+		$quo     = (float) ( isset( $request[ Report::FIELD_QUO ] ) ? $request[ Report::FIELD_QUO ] : 0 );
+		$rate    = (float) ( isset( $request[ Report::FIELD_RATE ] ) ? $request[ Report::FIELD_RATE ] : 0 );
+		$comment = isset( $request[ Report::FIELD_COMMENT ] ) ? $this->normalize_comment( $request[ Report::FIELD_COMMENT ] ) : '';
 
 		// Добавляем запись
 		$postId = wp_insert_post(
 			array(
-				'post_author'   => $employeeId,
-				'post_date_gmt' => $date,
-				'post_title'    => $comment,
+				'post_author' => $employeeId,
+				'post_date'   => $date,
+				'post_title'  => $comment,
 				'post_status'   => 'publish',
 				'post_type'     => Report::CPT,
 				'meta_input'    => array(
@@ -417,16 +474,18 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		// Читаем исходные данные и формируем массив для обновления
 		$postData = array( 'ID' => $post->ID );
 
-		// Дата в UTC
-		if ( isset( $request[ Report::FIELD_DATE ] )  ) {
-			$date                  = date_create_from_format( 'd.m.Y', $request[ Report::FIELD_DATE ] );
-			$date                  = date_format( $date, 'Y-m-d H:i:s' );
-			$postData['post_date'] = $date;
+		// Дата
+		if ( isset( $request[ Report::FIELD_DATE ] ) && '' !== trim( (string) $request[ Report::FIELD_DATE ] ) ) {
+			$dateObject = $this->parse_date_field( $request[ Report::FIELD_DATE ] );
+			if ( false === $dateObject ) {
+				return new \WP_Error( 'rest_invalid_date', 'Некорректная дата. Используйте формат ДД.ММ.ГГГГ.', array( 'status' => 400 ) );
+			}
+			$postData['post_date'] = date_format( $dateObject, 'Y-m-d H:i:s' );
 		}
 
-		// Комментарий
+		// Комментарий (переносы строк заменяем пробелами)
 		if ( isset( $request[ Report::FIELD_COMMENT ] ) ) {
-			$postData['post_title'] = $request[ Report::FIELD_COMMENT ];
+			$postData['post_title'] = $this->normalize_comment( $request[ Report::FIELD_COMMENT ] );
 		}
 
 		// Обновляем запись если были изменены комментарий или дата
@@ -436,7 +495,7 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 
 		// Обновляем мета-поля
 		if ( isset( $request[ Report::FIELD_PROJECT ] ) ) {
-			update_post_meta( $post->ID, Report::META_PROJECT, $request[ Report::FIELD_PROJECT ] );
+			update_post_meta( $post->ID, Report::META_PROJECT, sanitize_text_field( $request[ Report::FIELD_PROJECT ] ) );
 		}
 
 		if ( isset( $request[ Report::FIELD_QUO ] ) ) {
