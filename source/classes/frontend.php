@@ -43,8 +43,8 @@ class Frontend extends Base {
 		// Версия собственных ассетов по времени изменения - для сброса кэша браузера
 		$frontend_css_ver = filemtime( $this->plugin->path . 'assets/css/frontend.css' );
 		$frontend_js_ver  = filemtime( $this->plugin->path . 'assets/js/frontend.js' );
-		$frontend_css_ver = $frontend_css_ver ? $frontend_css_ver : '3.1.0';
-		$frontend_js_ver  = $frontend_js_ver ? $frontend_js_ver : '3.1.0';
+		$frontend_css_ver = $frontend_css_ver ? $frontend_css_ver : '3.1.1';
+		$frontend_js_ver  = $frontend_js_ver ? $frontend_js_ver : '3.1.1';
 
 		// Регистрация CSS
 		wp_register_style( 'ag-grid-core', $this->plugin->url . 'assets/dist/ag-grid.min.css', array(), '31.0' );
