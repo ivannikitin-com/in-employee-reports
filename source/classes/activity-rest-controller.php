@@ -321,6 +321,76 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 	}
 
 	/**
+	 * Определяет сотрудника по отображаемому имени
+	 *
+	 * Отображаемые имена в WordPress не уникальны, поэтому одного поиска мало:
+	 * при нескольких точных совпадениях выбираем текущего пользователя, затем
+	 * пользователя с ролью плагина. Если однозначного ответа нет - ошибка 400.
+	 *
+	 * @param string $employeeName  Отображаемое имя сотрудника
+	 * @param int    $currentUserId ID текущего пользователя
+	 * @return int|\WP_Error ID сотрудника или ошибка
+	 */
+	private function resolve_employee_id( $employeeName, $currentUserId ) {
+		$searchUser = new \WP_User_Query(
+			array(
+				'search'         => $employeeName,
+				'search_columns' => array( 'user_login', 'user_nicename', 'display_name' ),
+			)
+		);
+
+		// Оставляем только точные совпадения отображаемого имени
+		$matches = array();
+		foreach ( $searchUser->results as $foundUser ) {
+			if ( $foundUser->display_name === $employeeName ) {
+				$matches[ (int) $foundUser->ID ] = $foundUser;
+			}
+		}
+
+		// Ничего не нашли - запись создается от текущего пользователя
+		if ( empty( $matches ) ) {
+			return $currentUserId;
+		}
+
+		// Единственное совпадение
+		if ( 1 === count( $matches ) ) {
+			$ids = array_keys( $matches );
+			return (int) $ids[0];
+		}
+
+		// Неоднозначно: приоритет у текущего пользователя
+		if ( isset( $matches[ $currentUserId ] ) ) {
+			return (int) $currentUserId;
+		}
+
+		// Затем - у пользователей с ролями плагина
+		$pluginRoles = array_keys( Permissions_Manager::$roles );
+		$roleMatches = array();
+		foreach ( $matches as $matchId => $foundUser ) {
+			if ( array_intersect( $pluginRoles, (array) $foundUser->roles ) ) {
+				$roleMatches[ $matchId ] = $foundUser;
+			}
+		}
+		if ( 1 === count( $roleMatches ) ) {
+			$ids = array_keys( $roleMatches );
+			return (int) $ids[0];
+		}
+
+		// Определить сотрудника однозначно нельзя - сообщаем клиенту
+		$candidates = ! empty( $roleMatches ) ? $roleMatches : $matches;
+		$list       = array();
+		foreach ( $candidates as $matchId => $foundUser ) {
+			$list[] = $foundUser->user_login . ' (#' . $matchId . ')';
+		}
+
+		return new \WP_Error(
+			'rest_ambiguous_employee',
+			'Найдено несколько сотрудников с именем «' . $employeeName . '»: ' . implode( ', ', $list ) . '. Передайте employeeId.',
+			array( 'status' => 400 )
+		);
+	}
+
+	/**
 	 * Проверка прав на создание новой записи
 	 *
 	 * @param WP_REST_Request $request Текущий запрос
@@ -360,25 +430,18 @@ class Activity_REST_Controller extends \WP_REST_Posts_Controller {
 		$currentUserId = get_current_user_id();
 
 		// Читаем исходные данные
-		// Сотрудник
+		// Сотрудник: приоритет у явно переданного ID (фронтенд знает его точно),
+		// поиск по имени оставляем для обратной совместимости внешних клиентов
 		$employeeId = $currentUserId;
-		if ( isset( $request[ Report::FIELD_EMPLOYEE ] ) && '' !== trim( (string) $request[ Report::FIELD_EMPLOYEE ] ) ) {
-			$employeeName = trim( (string) $request[ Report::FIELD_EMPLOYEE ] );
-			$searchUser   = new \WP_User_Query(
-				array(
-					'search'         => $employeeName,
-					'search_columns' => array( 'user_login', 'user_nicename', 'display_name' ),
-				)
-			);
-			if ( ! empty( $searchUser->results ) ) {
-				$employeeId = (int) $searchUser->results[0]->ID;
-				// Предпочитаем точное совпадение отображаемого имени
-				foreach ( $searchUser->results as $foundUser ) {
-					if ( $foundUser->display_name === $employeeName ) {
-						$employeeId = (int) $foundUser->ID;
-						break;
-					}
-				}
+		if ( isset( $request['employeeId'] ) && (int) $request['employeeId'] > 0 ) {
+			$requestedEmployeeId = (int) $request['employeeId'];
+			if ( get_userdata( $requestedEmployeeId ) ) {
+				$employeeId = $requestedEmployeeId;
+			}
+		} elseif ( isset( $request[ Report::FIELD_EMPLOYEE ] ) && '' !== trim( (string) $request[ Report::FIELD_EMPLOYEE ] ) ) {
+			$employeeId = $this->resolve_employee_id( trim( (string) $request[ Report::FIELD_EMPLOYEE ] ), $currentUserId );
+			if ( is_wp_error( $employeeId ) ) {
+				return $employeeId;
 			}
 		}
 

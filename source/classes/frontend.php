@@ -78,6 +78,15 @@ class Frontend extends Base {
 			}
 		}
 
+		// Отображаемые имена не уникальны: при совпадении дополняем ID,
+		// иначе в списке невозможно отличить сотрудников с одинаковым именем
+		$employeeNameCounts = array_count_values( array_map( 'strval', $employees ) );
+		foreach ( $employees as $listUserId => $listUserName ) {
+			if ( $employeeNameCounts[ $listUserName ] > 1 ) {
+				$employees[ $listUserId ] = $listUserName . ' (#' . $listUserId . ')';
+			}
+		}
+
 		// Сортируем массив по имени здесь невозможна, поскольку в JS нет ассоциалитвных массивов, а после десериализации
 		// этот массив становится объектом, отсортированным по ключу. Сотрдировка должна быть на frontend'е
 		// asort( $employees );

@@ -689,6 +689,18 @@ jQuery(function($) {
     // === REST API функции ===
 
     /**
+     * ID сотрудника, для которого создается запись
+     * Имена в WordPress не уникальны, поэтому серверу передаем ID
+     */
+    function getTargetEmployeeId() {
+        const selectedEmployeeId = parseInt(elements.selEmployee.val(), 10);
+        if (innerREST.canCreateForOther && selectedEmployeeId > 0) {
+            return selectedEmployeeId;
+        }
+        return parseInt(innerREST.currentUserId, 10) || 0;
+    }
+
+    /**
      * Создание новой записи
      */
     function createReport(data) {
@@ -713,6 +725,7 @@ jQuery(function($) {
                 xhr.setRequestHeader('X-WP-Nonce', innerREST.nonce);
             },
             data: {
+                employeeId: getTargetEmployeeId(),
                 employee: data.employee || '',
                 date: dateValue,
                 project: data.project || '',
